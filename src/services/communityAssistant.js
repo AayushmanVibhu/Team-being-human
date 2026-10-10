@@ -39,7 +39,7 @@ function search(message, items) {
   let results = [...items];
   const terms = [
     [['basketball', 'sports', 'game'], (g) => g.category.includes('Sports')],
-    [['startup', 'founder', 'side project', 'building', 'build'], (g) => g.category.includes('Tech')],
+    [['startup', 'founder', 'side project', 'building', 'build'], (g) => g.category.includes('Technology')],
     [['music', 'musician', 'guitar', 'instrument'], (g) => g.category === 'Music'],
     [['study', 'learn', 'language'], (g) => g.category === 'Learning'],
     [['walk', 'outdoor', 'hike'], (g) => g.category === 'Outdoors'],
@@ -64,6 +64,10 @@ export class MockCommunityAssistantService {
     const message = history.at(-1)?.content || '';
     const text = lower(message);
     if (text.includes('error demo')) throw new Error('Mock service error');
+    if (text.includes('schedule') || text.includes('calendar') || text.includes('doing today')) return { text: 'Here’s a quick view of your upcoming plans.', actions: [{ type: 'calendar_summary' }] };
+    if (text.includes('ride') || text.includes('transport')) return { text: 'I found verified public pickup options for an upcoming activity.', actions: [{ type: 'carpool_recommendations', rideIds: ['ride-1'] }] };
+    if (text.includes('accessible') || text.includes('accessibility')) return { text: 'I’ll prioritize activities with access information and newcomer-friendly hosts.', actions: [{ type: 'apply_filters', filters: { accessibility: true } }] };
+    if (text.includes('safety')) return { text: 'Kinlii uses verified students and public meeting places. You can report an activity or student from its detail page.', actions: [{ type: 'text' }] };
 
     const createIntent = /help me (create|organize|start)|organize a|create a/.test(text);
     const noResultIntent = ['guitar', 'pottery', 'chess', 'surfing'].some((word) => text.includes(word));

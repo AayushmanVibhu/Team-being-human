@@ -1,0 +1,1 @@
+export default function KinliiLogo({compact=false}){return <span className={`kinlii-logo ${compact?'compact':''}`} aria-label="Kinlii"><span className="kinlii-symbol"><i/><i/><b/></span>{!compact&&<strong>Kinlii</strong>}</span>}
