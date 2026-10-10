@@ -18,3 +18,5 @@ V1 uses `MockCommunityAssistantService`, which performs local keyword and filter
 ## Prototype service boundaries
 
 Replaceable local services live in `src/services/` for student verification, storage, calendar sync, duplicate detection, carpool requests, notifications/geolocation, and the structured community assistant. University verification, Google Calendar, push notifications, geolocation, rides, and persistence are intentionally simulated; none claim a live third-party connection.
+
+The production frontend is configured as a static Site from `dist/`.
