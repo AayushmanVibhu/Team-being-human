@@ -1,8 +1,10 @@
-import { copyFile, readdir } from "node:fs/promises";
+import { copyFile, readdir, rename } from "node:fs/promises";
+
+await rename("dist/app.html", "dist/index.html");
 
 const files = await readdir("dist/assets");
-const currentJs = `dist/assets/${files.find((file) => /^index-[^.]+\.js$/.test(file))}`;
-const currentCss = `dist/assets/${files.find((file) => /^index-[^.]+\.css$/.test(file))}`;
+const currentJs = `dist/assets/${files.find((file) => /^(?:index|app)-[^.]+\.js$/.test(file))}`;
+const currentCss = `dist/assets/${files.find((file) => /^(?:index|app)-[^.]+\.css$/.test(file))}`;
 
 if (currentJs.endsWith("undefined") || currentCss.endsWith("undefined")) {
   throw new Error("Could not find Vite's hashed application assets");
