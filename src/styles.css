@@ -673,6 +673,42 @@ em {
   font-weight: 500;
 }
 
+.login-content .edu-input,
+.password-setup-content .edu-input {
+  margin-top: 18px;
+}
+
+.email-login-alternative {
+  background: none;
+  border: 0;
+  color: #315c49;
+  font-size: 12px;
+  font-weight: 750;
+  margin-top: 22px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.password-requirements {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+  text-align: left;
+}
+
+.password-requirements span {
+  align-items: center;
+  color: #8b928e;
+  display: flex;
+  font-size: 12px;
+  gap: 7px;
+}
+
+.password-requirements span.met {
+  color: #315c49;
+  font-weight: 700;
+}
+
 .create-error {
   color: #a22d24;
   font-size: 10px;

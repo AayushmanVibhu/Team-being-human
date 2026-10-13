@@ -25,6 +25,22 @@ export async function verifySignInCode(email: string, token: string) {
   return data.session;
 }
 
+export async function signInWithPassword(email: string, password: string) {
+  const { data, error } = await requireSupabase().auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  });
+
+  if (error) throw error;
+  return data.session;
+}
+
+export async function setAccountPassword(password: string) {
+  const { data, error } = await requireSupabase().auth.updateUser({ password });
+  if (error) throw error;
+  return data.user;
+}
+
 export async function signOut() {
   const { error } = await requireSupabase().auth.signOut();
   if (error) throw error;

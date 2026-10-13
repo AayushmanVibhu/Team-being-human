@@ -9,6 +9,8 @@ import {
 } from "./screens/main/MainTabScreens";
 import {
   InterestSelectionScreen,
+  LoginScreen,
+  PasswordSetupScreen,
   PersonalityQuizScreen,
   PersonalityResultScreen,
   ProfileSetupScreen,
@@ -18,11 +20,18 @@ import {
 import { events, questions, type EventId, type KinliiEvent } from "./data/kinliiData";
 import { usePersistentState } from "./hooks/usePersistentState";
 import { useAuthSession } from "./hooks/useAuthSession";
-import { sendSignInCode, signOut, verifySignInCode } from "./repositories/authRepository";
+import {
+  sendSignInCode,
+  setAccountPassword,
+  signInWithPassword,
+  signOut,
+  verifySignInCode,
+} from "./repositories/authRepository";
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import {
   completeOnboarding,
   getProfile,
+  markPasswordSet,
   updateProfile,
   type UserProfile,
 } from "./repositories/profileRepository";
@@ -79,6 +88,9 @@ export default function App() {
   const [schoolEmail, setSchoolEmail] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -169,7 +181,7 @@ export default function App() {
     if (sessionLoading) return;
     if (!session) {
       setProfile(null);
-      if (!["welcome", "verify"].includes(screen)) setScreen("welcome");
+      if (!["welcome", "verify", "login"].includes(screen)) setScreen("welcome");
       return;
     }
 
@@ -184,7 +196,13 @@ export default function App() {
         setDisplayName(nextProfile.displayName);
         setUniversityName(nextProfile.universityName);
         setBio(nextProfile.bio);
-        setScreen(nextProfile.onboardingCompleted ? "app" : "profile-setup");
+        setScreen(
+          !nextProfile.passwordSet
+            ? "set-password"
+            : nextProfile.onboardingCompleted
+              ? "app"
+              : "profile-setup",
+        );
       })
       .catch((error) => {
         if (!active) return;
@@ -226,6 +244,41 @@ export default function App() {
       if (!nextSession) throw new Error("Verification succeeded, but no session was created.");
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "That code could not be verified.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handlePasswordSignIn = async () => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const nextSession = await signInWithPassword(schoolEmail, loginPassword);
+      if (!nextSession) throw new Error("Sign-in succeeded, but no session was created.");
+      setLoginPassword("");
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : "The email or password could not be verified.",
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const saveAccountPassword = async () => {
+    if (!session || newPassword !== confirmPassword || newPassword.length < 8) return;
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      await setAccountPassword(newPassword);
+      await markPasswordSet(session.user.id);
+      const nextProfile = profile ? { ...profile, passwordSet: true } : profile;
+      setProfile(nextProfile);
+      setNewPassword("");
+      setConfirmPassword("");
+      setScreen(nextProfile?.onboardingCompleted ? "app" : "profile-setup");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Your password could not be saved.");
     } finally {
       setAuthLoading(false);
     }
@@ -273,6 +326,7 @@ export default function App() {
       await signOut();
       setCodeSent(false);
       setVerificationCode("");
+      setLoginPassword("");
       setScreen("welcome");
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Could not sign out.");
@@ -611,7 +665,6 @@ export default function App() {
     setEventError("");
     try {
       const eventId = await createEvent({
-        hostId: session.user.id,
         title: createForm.title,
         category: createForm.category,
         startsAt: resolveEventStart(createForm.date, createForm.time),
@@ -646,8 +699,23 @@ export default function App() {
     );
   }
 
-  if (!session && screen !== "verify") {
+  if (!session && !["verify", "login"].includes(screen)) {
     return <WelcomeScreen setScreen={setScreen} />;
+  }
+
+  if (!session && screen === "login") {
+    return (
+      <LoginScreen
+        email={schoolEmail}
+        error={authError}
+        loading={authLoading}
+        onSignIn={handlePasswordSignIn}
+        password={loginPassword}
+        setEmail={setSchoolEmail}
+        setPassword={setLoginPassword}
+        setScreen={setScreen}
+      />
+    );
   }
 
   if (!session && screen === "verify") {
@@ -677,6 +745,20 @@ export default function App() {
           Try again
         </button>
       </div>
+    );
+  }
+
+  if (session && screen === "set-password") {
+    return (
+      <PasswordSetupScreen
+        confirmPassword={confirmPassword}
+        error={authError}
+        loading={authLoading}
+        onSave={saveAccountPassword}
+        password={newPassword}
+        setConfirmPassword={setConfirmPassword}
+        setPassword={setNewPassword}
+      />
     );
   }
 

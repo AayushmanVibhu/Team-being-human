@@ -62,7 +62,6 @@ export async function listAvailableEvents(): Promise<EventFeedItem[]> {
 }
 
 export type CreateEventInput = {
-  hostId: string;
   title: string;
   category: string;
   startsAt: string;
@@ -73,29 +72,21 @@ export type CreateEventInput = {
 
 export async function createEvent(input: CreateEventInput): Promise<string> {
   const client = requireSupabase();
-  const { data, error } = await client
-    .from("events")
-    .insert({
-      host_id: input.hostId,
-      title: input.title.trim(),
-      description:
-        input.description?.trim() ||
-        `A small ${input.category.toLowerCase()} activity hosted on Kinlii.`,
-      category: input.category,
-      starts_at: input.startsAt,
-      location_name: input.locationName.trim(),
-      capacity: input.capacity,
-      status: "active",
-      tags: [input.category, "New activity"],
-    })
-    .select("id")
-    .single();
+  const description =
+    input.description?.trim() ||
+    `A small ${input.category.toLowerCase()} activity hosted on Kinlii.`;
+  const { data, error } = await client.rpc("create_event", {
+    p_title: input.title.trim(),
+    p_description: description,
+    p_category: input.category,
+    p_starts_at: input.startsAt,
+    p_location_name: input.locationName.trim(),
+    p_capacity: input.capacity,
+    p_tags: [input.category, "New activity"],
+  });
 
   if (error) throw error;
-
-  const { error: joinError } = await client.rpc("join_event", { p_event_id: data.id });
-  if (joinError) throw joinError;
-  return data.id as string;
+  return data as string;
 }
 
 export async function listMyJoinedEventIds(): Promise<string[]> {

@@ -8,6 +8,7 @@ export type UserProfile = {
   bio: string;
   avatarUrl: string | null;
   onboardingCompleted: boolean;
+  passwordSet: boolean;
 };
 
 type ProfileRow = {
@@ -18,10 +19,11 @@ type ProfileRow = {
   bio: string;
   avatar_url: string | null;
   onboarding_completed: boolean;
+  password_set: boolean;
 };
 
 const profileColumns =
-  "id, display_name, university_name, email_domain, bio, avatar_url, onboarding_completed";
+  "id, display_name, university_name, email_domain, bio, avatar_url, onboarding_completed, password_set";
 
 function mapProfile(row: ProfileRow): UserProfile {
   return {
@@ -32,7 +34,16 @@ function mapProfile(row: ProfileRow): UserProfile {
     bio: row.bio,
     avatarUrl: row.avatar_url,
     onboardingCompleted: row.onboarding_completed,
+    passwordSet: row.password_set,
   };
+}
+
+export async function markPasswordSet(userId: string): Promise<void> {
+  const { error } = await requireSupabase()
+    .from("profiles")
+    .update({ password_set: true })
+    .eq("id", userId);
+  if (error) throw error;
 }
 
 export async function getProfile(userId: string): Promise<UserProfile> {

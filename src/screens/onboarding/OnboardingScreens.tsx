@@ -12,7 +12,7 @@ export function WelcomeScreen({ setScreen }: { setScreen: SetScreen }) {
     <div className="phone-shell onboarding welcome-screen">
       <header className="simple-header">
         <Logo />
-        <button onClick={() => setScreen("verify")}>Sign in</button>
+        <button onClick={() => setScreen("login")}>Sign in</button>
       </header>
       <div className="hero-visual">
         <div className="orbit orbit-one" />
@@ -48,6 +48,176 @@ export function WelcomeScreen({ setScreen }: { setScreen: SetScreen }) {
           Find my people <Icon name="chevron" />
         </button>
         <p>Made for students · Safe by design</p>
+      </div>
+    </div>
+  );
+}
+
+type LoginScreenProps = {
+  email: string;
+  error: string;
+  loading: boolean;
+  onSignIn: () => Promise<void>;
+  password: string;
+  setEmail: Dispatch<SetStateAction<string>>;
+  setPassword: Dispatch<SetStateAction<string>>;
+  setScreen: SetScreen;
+};
+
+export function LoginScreen(props: LoginScreenProps) {
+  const { email, error, loading, onSignIn, password, setEmail, setPassword, setScreen } = props;
+  const validEmail = /^[^\s@]+@[^\s@]+\.edu$/i.test(email);
+
+  return (
+    <div className="phone-shell onboarding verify-screen">
+      <header className="flow-header">
+        <button onClick={() => setScreen("welcome")}>
+          <Icon name="arrow" />
+        </button>
+        <Logo />
+        <span>Sign in</span>
+      </header>
+      <main className="verification-content login-content">
+        <div className="verification-mark profile-mark">
+          <Icon name="user" size={31} />
+        </div>
+        <span className="step-label">WELCOME BACK</span>
+        <h1>Sign in to Kinlii</h1>
+        <p>Use the password you created after verifying your student email.</p>
+
+        <label className="edu-input">
+          <span>University email</span>
+          <div>
+            <Icon name="user" size={18} />
+            <input
+              autoComplete="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="name@university.edu"
+            />
+          </div>
+        </label>
+        <label className="edu-input">
+          <span>Password</span>
+          <div>
+            <Icon name="check" size={18} />
+            <input
+              autoComplete="current-password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Your password"
+            />
+          </div>
+        </label>
+
+        {error && (
+          <p className="auth-error" role="alert">
+            {error}
+          </p>
+        )}
+
+        <button className="email-login-alternative" onClick={() => setScreen("verify")}>
+          Haven’t created a password yet? Use email verification
+        </button>
+      </main>
+      <div className="bottom-action">
+        <button
+          className="primary-button"
+          disabled={loading || !validEmail || password.length < 8}
+          onClick={() => void onSignIn()}
+        >
+          {loading ? "Signing in…" : "Sign in"} {!loading && <Icon name="chevron" />}
+        </button>
+        <p>New to Kinlii? Verify your student email first.</p>
+      </div>
+    </div>
+  );
+}
+
+type PasswordSetupScreenProps = {
+  confirmPassword: string;
+  error: string;
+  loading: boolean;
+  onSave: () => Promise<void>;
+  password: string;
+  setConfirmPassword: Dispatch<SetStateAction<string>>;
+  setPassword: Dispatch<SetStateAction<string>>;
+};
+
+export function PasswordSetupScreen(props: PasswordSetupScreenProps) {
+  const { confirmPassword, error, loading, onSave, password, setConfirmPassword, setPassword } =
+    props;
+  const longEnough = password.length >= 8;
+  const passwordsMatch = password === confirmPassword;
+
+  return (
+    <div className="phone-shell onboarding verify-screen">
+      <header className="flow-header">
+        <span className="flow-header-spacer" />
+        <Progress step={2} total={5} />
+        <span>Security</span>
+      </header>
+      <main className="verification-content password-setup-content">
+        <div className="verification-mark profile-mark">
+          <Icon name="check" size={31} />
+        </div>
+        <span className="step-label">EMAIL VERIFIED</span>
+        <h1>Create your password</h1>
+        <p>Next time, sign in instantly without waiting for another verification email.</p>
+
+        <label className="edu-input">
+          <span>Password</span>
+          <div>
+            <Icon name="check" size={18} />
+            <input
+              autoComplete="new-password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="At least 8 characters"
+            />
+          </div>
+        </label>
+        <label className="edu-input">
+          <span>Confirm password</span>
+          <div>
+            <Icon name="check" size={18} />
+            <input
+              autoComplete="new-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              placeholder="Enter it again"
+            />
+          </div>
+        </label>
+
+        <div className="password-requirements">
+          <span className={longEnough ? "met" : ""}>
+            <Icon name="check" size={13} /> At least 8 characters
+          </span>
+          <span className={confirmPassword && passwordsMatch ? "met" : ""}>
+            <Icon name="check" size={13} /> Passwords match
+          </span>
+        </div>
+
+        {error && (
+          <p className="auth-error" role="alert">
+            {error}
+          </p>
+        )}
+      </main>
+      <div className="bottom-action">
+        <button
+          className="primary-button"
+          disabled={loading || !longEnough || !passwordsMatch}
+          onClick={() => void onSave()}
+        >
+          {loading ? "Securing account…" : "Save password"} {!loading && <Icon name="chevron" />}
+        </button>
+        <p>Supabase securely hashes your password. Kinlii never stores or displays it.</p>
       </div>
     </div>
   );

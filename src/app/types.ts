@@ -1,6 +1,8 @@
 export type Screen =
   | "welcome"
   | "verify"
+  | "login"
+  | "set-password"
   | "profile-setup"
   | "interests"
   | "quiz"
