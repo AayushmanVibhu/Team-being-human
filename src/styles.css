@@ -563,6 +563,60 @@ em {
   margin-top: 14px;
 }
 
+.magic-link-instructions {
+  align-items: flex-start;
+  background: #edf4ef;
+  border: 1px solid #d4e4d9;
+  border-radius: 14px;
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 16px;
+  text-align: left;
+}
+
+.magic-link-instructions > span {
+  align-items: center;
+  background: #315c49;
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  flex: 0 0 26px;
+  height: 26px;
+  justify-content: center;
+}
+
+.magic-link-instructions strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.magic-link-instructions p {
+  color: #657069;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.verification-divider {
+  align-items: center;
+  color: #7a817c;
+  display: flex;
+  font-size: 11px;
+  gap: 10px;
+  margin: 20px 0;
+  text-transform: uppercase;
+}
+
+.verification-divider::before,
+.verification-divider::after {
+  background: #ddd9d0;
+  content: "";
+  flex: 1;
+  height: 1px;
+}
+
 .auth-loading-screen {
   background: #f7f2e9;
 }

@@ -101,7 +101,7 @@ export function VerificationScreen(props: VerificationScreenProps) {
         <h1>{codeSent ? "Check your inbox" : "Verify your student status"}</h1>
         <p>
           {codeSent
-            ? `We sent a six-digit verification code to ${schoolEmail}.`
+            ? `We sent a secure sign-in email to ${schoolEmail}.`
             : "Kin is a trusted student community. Use your university email to keep every group verified and accountable."}
         </p>
         {!codeSent ? (
@@ -152,19 +152,33 @@ export function VerificationScreen(props: VerificationScreenProps) {
             </section>
           </>
         ) : (
-          <label className="edu-input code-input">
-            <span>Verification code</span>
-            <div>
-              <input
-                inputMode="numeric"
-                maxLength={6}
-                value={verificationCode}
-                onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, ""))}
-                placeholder="000000"
-              />
+          <>
+            <section className="magic-link-instructions">
+              <span>
+                <Icon name="check" size={16} />
+              </span>
+              <div>
+                <strong>Open the email and select “Sign in”</strong>
+                <p>You’ll return to Kinlii and continue automatically.</p>
+              </div>
+            </section>
+            <div className="verification-divider">
+              <span>or use a code if your email includes one</span>
             </div>
-            <small>Enter the six-digit code from your university inbox.</small>
-          </label>
+            <label className="edu-input code-input">
+              <span>Six-digit code</span>
+              <div>
+                <input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={verificationCode}
+                  onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, ""))}
+                  placeholder="000000"
+                />
+              </div>
+            </label>
+          </>
         )}
         {authError && (
           <p className="auth-error" role="alert">
@@ -178,16 +192,12 @@ export function VerificationScreen(props: VerificationScreenProps) {
           disabled={authLoading || (codeSent ? verificationCode.length !== 6 : !validEmail)}
           onClick={() => void (codeSent ? onVerifyCode() : onSendCode())}
         >
-          {authLoading
-            ? "Please wait…"
-            : codeSent
-              ? "Verify and continue"
-              : "Send verification code"}{" "}
+          {authLoading ? "Please wait…" : codeSent ? "Verify and continue" : "Send sign-in email"}{" "}
           {!authLoading && <Icon name="chevron" />}
         </button>
         <p>
           {codeSent
-            ? "Didn't receive it? Go back and send a new code."
+            ? "Didn't receive it? Go back and send a new email."
             : "By continuing, you agree to our community guidelines."}
         </p>
       </div>

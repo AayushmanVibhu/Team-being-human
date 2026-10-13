@@ -4,7 +4,10 @@ export async function sendSignInCode(email: string) {
   const client = requireSupabase();
   const { error } = await client.auth.signInWithOtp({
     email: email.trim().toLowerCase(),
-    options: { shouldCreateUser: true },
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: `${window.location.origin}/`,
+    },
   });
 
   if (error) throw error;

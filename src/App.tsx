@@ -110,6 +110,10 @@ export default function App() {
 
   useEffect(() => {
     if (sessionLoading) return;
+    if (session && screen === "verify") {
+      setScreen("interests");
+      return;
+    }
     if (!session && !["welcome", "verify"].includes(screen)) setScreen("welcome");
   }, [screen, session, sessionLoading, setScreen]);
 
