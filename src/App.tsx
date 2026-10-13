@@ -119,6 +119,11 @@ export default function App() {
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [profileImage, setProfileImage] = usePersistentState("kinlii:profile-image", "");
+  const [pendingProfileImage, setPendingProfileImage] = useState("");
+  const [profileImageError, setProfileImageError] = useState("");
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropX, setCropX] = useState(0);
+  const [cropY, setCropY] = useState(0);
   const profileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -452,9 +457,52 @@ export default function App() {
 
   const uploadProfileImage = (file?: File) => {
     if (!file || !file.type.startsWith("image/")) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setProfileImageError("Choose an image smaller than 10 MB.");
+      return;
+    }
+    setProfileImageError("");
     const reader = new FileReader();
-    reader.onload = () => setProfileImage(String(reader.result || ""));
+    reader.onload = () => {
+      setPendingProfileImage(String(reader.result || ""));
+      setCropZoom(1);
+      setCropX(0);
+      setCropY(0);
+    };
     reader.readAsDataURL(file);
+  };
+
+  const closePhotoEditor = () => {
+    setPendingProfileImage("");
+    if (profileInput.current) profileInput.current.value = "";
+  };
+
+  const saveCroppedProfileImage = async () => {
+    if (!pendingProfileImage) return;
+
+    const image = new Image();
+    image.src = pendingProfileImage;
+    await image.decode();
+
+    const size = 512;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const coverScale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
+    const scale = coverScale * cropZoom;
+    const width = image.naturalWidth * scale;
+    const height = image.naturalHeight * scale;
+    const movableX = Math.max(0, (width - size) / 2);
+    const movableY = Math.max(0, (height - size) / 2);
+    const x = (size - width) / 2 - (cropX / 100) * movableX;
+    const y = (size - height) / 2 - (cropY / 100) * movableY;
+
+    context.drawImage(image, x, y, width, height);
+    setProfileImage(canvas.toDataURL("image/jpeg", 0.9));
+    closePhotoEditor();
   };
 
   const publishEvent = () => {
@@ -628,6 +676,12 @@ export default function App() {
         />
       </header>
 
+      {profileImageError && (
+        <div className="profile-image-toast" role="alert">
+          {profileImageError}
+        </div>
+      )}
+
       <main className="app-content">
         {tab === "discover" && (
           <DiscoverScreen
@@ -673,6 +727,75 @@ export default function App() {
           />
         )}
       </main>
+
+      {pendingProfileImage && (
+        <div className="photo-editor-backdrop" role="dialog" aria-modal="true">
+          <section className="photo-editor">
+            <header>
+              <div>
+                <strong>Adjust profile photo</strong>
+                <small>Move and zoom until your photo fits the circle.</small>
+              </div>
+              <button onClick={closePhotoEditor} aria-label="Close photo editor">
+                ×
+              </button>
+            </header>
+            <div className="photo-crop-stage">
+              <div className="photo-crop-circle">
+                <img
+                  src={pendingProfileImage}
+                  alt="Profile crop preview"
+                  style={{
+                    objectPosition: `${50 + cropX / 2}% ${50 + cropY / 2}%`,
+                    transform: `scale(${cropZoom})`,
+                  }}
+                />
+              </div>
+            </div>
+            <div className="photo-controls">
+              <label>
+                Horizontal position
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={cropX}
+                  onChange={(event) => setCropX(Number(event.target.value))}
+                />
+              </label>
+              <label>
+                Vertical position
+                <input
+                  type="range"
+                  min="-100"
+                  max="100"
+                  value={cropY}
+                  onChange={(event) => setCropY(Number(event.target.value))}
+                />
+              </label>
+              <label>
+                Zoom
+                <input
+                  type="range"
+                  min="1"
+                  max="3"
+                  step="0.05"
+                  value={cropZoom}
+                  onChange={(event) => setCropZoom(Number(event.target.value))}
+                />
+              </label>
+            </div>
+            <div className="photo-editor-actions">
+              <button className="secondary-button" onClick={closePhotoEditor}>
+                Cancel
+              </button>
+              <button className="primary-button" onClick={() => void saveCroppedProfileImage()}>
+                Use photo
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       <button
         className="accessibility-fab"
