@@ -1,22 +1,24 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
 
 import { Icon } from "../../components/ui/Icon";
-import type { KinliiEvent } from "../../data/kinliiData";
+import type { EventId, KinliiEvent } from "../../data/kinliiData";
 
 type EventDetailsScreenProps = {
   event: KinliiEvent;
-  joined: number[];
-  saved: number[];
-  carpoolJoined: number[];
+  joined: EventId[];
+  saved: EventId[];
+  carpoolJoined: EventId[];
+  actionError: string;
+  actionLoading: boolean;
   largeText: boolean;
   highContrast: boolean;
   reading: boolean;
   readPage: () => void;
   setEvent: Dispatch<SetStateAction<KinliiEvent | null>>;
-  onJoin: (eventId: number) => void;
-  onLeave: (eventId: number, reason: string) => void;
-  setSaved: Dispatch<SetStateAction<number[]>>;
-  setCarpoolJoined: Dispatch<SetStateAction<number[]>>;
+  onJoin: (eventId: EventId) => Promise<void>;
+  onLeave: (eventId: EventId, reason: string) => Promise<void>;
+  setSaved: Dispatch<SetStateAction<EventId[]>>;
+  setCarpoolJoined: Dispatch<SetStateAction<EventId[]>>;
 };
 
 export function EventDetailsScreen({
@@ -24,6 +26,8 @@ export function EventDetailsScreen({
   joined,
   saved,
   carpoolJoined,
+  actionError,
+  actionLoading,
   largeText,
   highContrast,
   reading,
@@ -51,11 +55,15 @@ export function EventDetailsScreen({
     );
   };
 
-  const submitLeave = () => {
+  const submitLeave = async () => {
     if (!leaveReason) return;
-    onLeave(event.id, leaveReason);
-    setLeaveReason("");
-    setLeaveDialogOpen(false);
+    try {
+      await onLeave(event.id, leaveReason);
+      setLeaveReason("");
+      setLeaveDialogOpen(false);
+    } catch {
+      // The parent surfaces the database error without dismissing the dialog.
+    }
   };
 
   return (
@@ -94,6 +102,7 @@ export function EventDetailsScreen({
           {event.type}
         </span>
         <h1>{event.title}</h1>
+        {event.description && <p className="event-description">{event.description}</p>}
         <div className="event-facts">
           <div>
             <span>
@@ -137,7 +146,10 @@ export function EventDetailsScreen({
           <div className="section-heading">
             <div>
               <h2>Meet the group</h2>
-              <p>2 of 4 verified students joined</p>
+              <p>
+                {event.attendeeCount ?? Math.max(1, (event.capacity ?? 4) - event.spots)} of{" "}
+                {event.capacity ?? 4} verified students joined
+              </p>
             </div>
             <span>
               {event.spots} spot{event.spots === 1 ? "" : "s"} left
@@ -219,9 +231,12 @@ export function EventDetailsScreen({
         </div>
         <button
           className={isJoined ? "joined-event-button" : ""}
-          onClick={() => (isJoined ? setLeaveDialogOpen(true) : onJoin(event.id))}
+          disabled={actionLoading || (!isJoined && event.spots <= 0)}
+          onClick={() => (isJoined ? setLeaveDialogOpen(true) : void onJoin(event.id))}
         >
-          {isJoined ? (
+          {actionLoading ? (
+            "Updating…"
+          ) : isJoined ? (
             <>
               <Icon name="check" size={18} /> You’re going · Leave
             </>
@@ -230,6 +245,12 @@ export function EventDetailsScreen({
           )}
         </button>
       </div>
+
+      {actionError && (
+        <div className="event-action-error" role="alert">
+          {actionError}
+        </div>
+      )}
 
       {leaveDialogOpen && (
         <div className="leave-dialog-backdrop" role="presentation">
@@ -271,8 +292,12 @@ export function EventDetailsScreen({
               <button type="button" onClick={() => setLeaveDialogOpen(false)}>
                 Keep my spot
               </button>
-              <button type="button" disabled={!leaveReason} onClick={submitLeave}>
-                Confirm leave
+              <button
+                type="button"
+                disabled={!leaveReason || actionLoading}
+                onClick={() => void submitLeave()}
+              >
+                {actionLoading ? "Leaving…" : "Confirm leave"}
               </button>
             </div>
           </section>

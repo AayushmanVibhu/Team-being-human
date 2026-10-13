@@ -64,7 +64,28 @@ export const questions = [
   },
 ];
 
-export const events = [
+export type EventId = number | string;
+
+export type KinliiEvent = {
+  id: EventId;
+  title: string;
+  type: string;
+  image: string;
+  time: string;
+  place: string;
+  distance: string;
+  match: number;
+  spots: number;
+  capacity?: number;
+  attendeeCount?: number;
+  description?: string;
+  host: string;
+  hostId?: string;
+  activityIcon: IconName;
+  tags: string[];
+};
+
+export const events: KinliiEvent[] = [
   {
     id: 1,
     title: "Sunset badminton",
@@ -111,5 +132,3 @@ export const events = [
     tags: ["K-pop", "Dance", "Creative"],
   },
 ];
-
-export type KinliiEvent = (typeof events)[number];

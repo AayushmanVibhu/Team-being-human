@@ -1,6 +1,5 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 
-import type { HostedPlan } from "../../App";
 import type { Personality, Screen, Tab } from "../../app/types";
 import { Icon } from "../../components/ui/Icon";
 import { events, type KinliiEvent } from "../../data/kinliiData";
@@ -117,7 +116,7 @@ type CalendarScreenProps = {
   setCalendarSynced: Dispatch<SetStateAction<boolean>>;
   privateCalendar: boolean;
   setPrivateCalendar: Dispatch<SetStateAction<boolean>>;
-  hostedPlans: HostedPlan[];
+  hostedPlans: KinliiEvent[];
   setEvent: Dispatch<SetStateAction<KinliiEvent | null>>;
 };
 
@@ -231,8 +230,8 @@ export function CalendarScreen({
           </div>
           <Icon name="chevron" size={17} />
         </button>
-        {hostedPlans.map((plan, index) => (
-          <button key={`${plan.title}-${index}`}>
+        {hostedPlans.map((plan) => (
+          <button key={plan.id} onClick={() => setEvent(plan)}>
             <time>
               {plan.time}
               <small>HOST</small>
@@ -240,11 +239,11 @@ export function CalendarScreen({
             <span className="agenda-line green" />
             <div>
               <span>
-                <Icon name="sparkles" size={15} /> {plan.category}
+                <Icon name={plan.activityIcon} size={15} /> {plan.type}
               </span>
               <strong>{plan.title}</strong>
               <p>
-                {plan.location} · Up to {plan.spots} people
+                {plan.place} · {plan.spots} spots left
               </p>
             </div>
             <Icon name="chevron" size={17} />

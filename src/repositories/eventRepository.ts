@@ -61,12 +61,114 @@ export async function listAvailableEvents(): Promise<EventFeedItem[]> {
   return ((data ?? []) as EventFeedRow[]).map(mapFeedRow);
 }
 
+export type CreateEventInput = {
+  hostId: string;
+  title: string;
+  category: string;
+  startsAt: string;
+  locationName: string;
+  capacity: number;
+  description?: string;
+};
+
+export async function createEvent(input: CreateEventInput): Promise<string> {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("events")
+    .insert({
+      host_id: input.hostId,
+      title: input.title.trim(),
+      description:
+        input.description?.trim() ||
+        `A small ${input.category.toLowerCase()} activity hosted on Kinlii.`,
+      category: input.category,
+      starts_at: input.startsAt,
+      location_name: input.locationName.trim(),
+      capacity: input.capacity,
+      status: "active",
+      tags: [input.category, "New activity"],
+    })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+
+  const { error: joinError } = await client.rpc("join_event", { p_event_id: data.id });
+  if (joinError) throw joinError;
+  return data.id as string;
+}
+
+export async function listMyJoinedEventIds(): Promise<string[]> {
+  const client = requireSupabase();
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await client
+    .from("event_members")
+    .select("event_id")
+    .eq("user_id", user.id)
+    .eq("status", "confirmed");
+  if (error) throw error;
+  return (data ?? []).map((membership) => membership.event_id as string);
+}
+
+export async function listHostedEvents(hostId: string, hostName: string): Promise<EventFeedItem[]> {
+  const client = requireSupabase();
+  const { data: hostedEvents, error } = await client
+    .from("events")
+    .select(
+      "id, host_id, title, description, category, starts_at, location_name, latitude, longitude, capacity, tags",
+    )
+    .eq("host_id", hostId)
+    .eq("status", "active")
+    .gt("starts_at", new Date().toISOString())
+    .order("starts_at");
+  if (error) throw error;
+  if (!hostedEvents?.length) return [];
+
+  const eventIds = hostedEvents.map((event) => event.id as string);
+  const { data: memberships, error: membershipError } = await client
+    .from("event_members")
+    .select("event_id")
+    .in("event_id", eventIds)
+    .eq("status", "confirmed");
+  if (membershipError) throw membershipError;
+
+  const attendeeCounts = new Map<string, number>();
+  memberships?.forEach((membership) => {
+    const eventId = membership.event_id as string;
+    attendeeCounts.set(eventId, (attendeeCounts.get(eventId) ?? 0) + 1);
+  });
+
+  return hostedEvents.map((event) => {
+    const attendeeCount = attendeeCounts.get(event.id as string) ?? 0;
+    return {
+      id: event.id as string,
+      hostId: event.host_id as string,
+      hostName,
+      title: event.title as string,
+      description: event.description as string,
+      category: event.category as string,
+      startsAt: event.starts_at as string,
+      locationName: event.location_name as string,
+      latitude: event.latitude as number | null,
+      longitude: event.longitude as number | null,
+      capacity: event.capacity as number,
+      attendeeCount,
+      spotsRemaining: (event.capacity as number) - attendeeCount,
+      tags: (event.tags as string[] | null) ?? [],
+    };
+  });
+}
+
 export async function joinEvent(eventId: string) {
   const client = requireSupabase();
   const { data, error } = await client.rpc("join_event", { p_event_id: eventId }).single();
 
   if (error) throw error;
-  return data;
+  return data as { event_id: string; attendee_count: number; spots_remaining: number };
 }
 
 export async function leaveEvent(eventId: string, reason: string) {
@@ -76,7 +178,7 @@ export async function leaveEvent(eventId: string, reason: string) {
     .single();
 
   if (error) throw error;
-  return data;
+  return data as { event_id: string; attendee_count: number; spots_remaining: number };
 }
 
 export async function saveEvent(eventId: string) {

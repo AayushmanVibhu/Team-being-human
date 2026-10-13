@@ -673,6 +673,36 @@ em {
   font-weight: 500;
 }
 
+.create-error {
+  color: #a22d24;
+  font-size: 10px;
+  font-weight: 650;
+  margin: 10px 0 0;
+  text-align: center;
+}
+
+.event-description {
+  color: #68766f;
+  font-size: 11px;
+  line-height: 1.55;
+  margin: 8px 0 16px;
+}
+
+.event-action-error {
+  background: #fff1ed;
+  border: 1px solid #efc8bd;
+  border-radius: 10px;
+  bottom: 84px;
+  color: #9b3e30;
+  font-size: 11px;
+  left: 50%;
+  padding: 9px 12px;
+  position: fixed;
+  transform: translateX(-50%);
+  width: min(calc(100% - 32px), 398px);
+  z-index: 31;
+}
+
 .profile-bio-input textarea {
   background: #fff;
   border: 1px solid #d9d5cc;

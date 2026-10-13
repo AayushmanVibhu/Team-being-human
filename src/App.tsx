@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "./components/ui/Icon";
 import { EventDetailsScreen } from "./screens/events/EventDetailsScreen";
 import {
@@ -15,11 +15,11 @@ import {
   VerificationScreen,
   WelcomeScreen,
 } from "./screens/onboarding/OnboardingScreens";
-import { events, questions } from "./data/kinliiData";
+import { events, questions, type EventId, type KinliiEvent } from "./data/kinliiData";
 import { usePersistentState } from "./hooks/usePersistentState";
 import { useAuthSession } from "./hooks/useAuthSession";
 import { sendSignInCode, signOut, verifySignInCode } from "./repositories/authRepository";
-import { hasSupabaseConfig } from "./lib/supabase";
+import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import {
   completeOnboarding,
   getProfile,
@@ -28,20 +28,20 @@ import {
 } from "./repositories/profileRepository";
 import { communityAssistant } from "./services/communityAssistant";
 import { findSimilarEvents } from "./services/duplicateEventService";
+import {
+  createEvent,
+  joinEvent as joinDatabaseEvent,
+  leaveEvent as leaveDatabaseEvent,
+  listAvailableEvents,
+  listHostedEvents,
+  listMyJoinedEventIds,
+} from "./repositories/eventRepository";
+import { resolveEventStart, toKinliiEvent } from "./services/eventAdapter";
 
 import type { Screen, Tab } from "./app/types";
 
-export type HostedPlan = {
-  title: string;
-  category: string;
-  date: string;
-  time: string;
-  location: string;
-  spots: string;
-};
-
 export type LeaveRecord = {
-  eventId: number;
+  eventId: EventId;
   reason: string;
   leftAt: string;
 };
@@ -67,14 +67,14 @@ export default function App() {
   const [quizStep, setQuizStep] = useState(0);
   const [answers, setAnswers] = usePersistentState("kinlii:personality-answers", [] as number[]);
   const [tab, setTab] = useState<Tab>("discover");
-  const [event, setEvent] = useState<(typeof events)[number] | null>(null);
-  const [joined, setJoined] = usePersistentState("kinlii:joined", [] as number[]);
+  const [event, setEvent] = useState<KinliiEvent | null>(null);
+  const [joined, setJoined] = usePersistentState("kinlii:joined", [] as EventId[]);
   const [remainingSpots, setRemainingSpots] = usePersistentState(
     "kinlii:remaining-spots",
-    Object.fromEntries(events.map((item) => [item.id, item.spots])) as Record<number, number>,
+    Object.fromEntries(events.map((item) => [item.id, item.spots])) as Record<string, number>,
   );
   const [, setLeaveRecords] = usePersistentState("kinlii:leave-records", [] as LeaveRecord[]);
-  const [saved, setSaved] = usePersistentState("kinlii:saved", [] as number[]);
+  const [saved, setSaved] = usePersistentState("kinlii:saved", [] as EventId[]);
   const [alertsEnabled, setAlertsEnabled] = usePersistentState("kinlii:nearby-alerts", true);
   const [schoolEmail, setSchoolEmail] = useState("");
   const [codeSent, setCodeSent] = useState(false);
@@ -105,10 +105,14 @@ export default function App() {
   const [reading, setReading] = useState(false);
   const [carpoolJoined, setCarpoolJoined] = usePersistentState(
     "kinlii:carpool-requests",
-    [] as number[],
+    [] as EventId[],
   );
   const [createOpen, setCreateOpen] = useState(false);
-  const [hostedPlans, setHostedPlans] = usePersistentState("kinlii:hosted", [] as HostedPlan[]);
+  const [realEvents, setRealEvents] = useState<KinliiEvent[]>([]);
+  const [hostedEvents, setHostedEvents] = useState<KinliiEvent[]>([]);
+  const [eventActionLoading, setEventActionLoading] = useState(false);
+  const [eventError, setEventError] = useState("");
+  const [publishingEvent, setPublishingEvent] = useState(false);
   const [createForm, setCreateForm] = useState({
     title: "",
     category: "",
@@ -125,6 +129,41 @@ export default function App() {
   const [cropX, setCropX] = useState(0);
   const [cropY, setCropY] = useState(0);
   const profileInput = useRef<HTMLInputElement>(null);
+
+  const refreshRealEvents = useCallback(async () => {
+    if (!session) return;
+    const [feed, membershipIds, hosted] = await Promise.all([
+      listAvailableEvents(),
+      listMyJoinedEventIds(),
+      listHostedEvents(session.user.id, profile?.displayName || displayName || "Kinlii host"),
+    ]);
+    setRealEvents(feed.map(toKinliiEvent));
+    setHostedEvents(hosted.map(toKinliiEvent));
+    setJoined((current) => [...current.filter((id) => typeof id === "number"), ...membershipIds]);
+  }, [displayName, profile?.displayName, session, setJoined]);
+
+  useEffect(() => {
+    if (!session || !profile?.onboardingCompleted) return;
+    void refreshRealEvents().catch((error) =>
+      setEventError(error instanceof Error ? error.message : "Events could not be loaded."),
+    );
+
+    const client = supabase;
+    if (!client) return;
+    const channel = client
+      .channel("kinlii-event-feed")
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => {
+        void refreshRealEvents();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "event_members" }, () => {
+        void refreshRealEvents();
+      })
+      .subscribe();
+
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [profile?.onboardingCompleted, refreshRealEvents, session]);
 
   useEffect(() => {
     if (sessionLoading) return;
@@ -382,7 +421,7 @@ export default function App() {
   const similarEvent = useMemo(() => {
     if (!createForm.category || !createForm.date || !createForm.time || !createForm.location)
       return null;
-    const schedules: Record<number, string> = { 1: "Today", 2: "Tomorrow", 3: "Friday" };
+    const schedules: Record<EventId, string> = { 1: "Today", 2: "Tomorrow", 3: "Friday" };
     return (
       findSimilarEvents({
         title: createForm.title,
@@ -407,13 +446,14 @@ export default function App() {
 
   const availableEvents = useMemo(
     () =>
-      events
-        .map((item) => ({
+      [
+        ...realEvents,
+        ...events.map((item) => ({
           ...item,
           spots: remainingSpots[item.id] ?? item.spots,
-        }))
-        .filter((item) => item.spots > 0),
-    [remainingSpots],
+        })),
+      ].filter((item) => item.spots > 0),
+    [realEvents, remainingSpots],
   );
 
   const visibleEvents = useMemo(() => {
@@ -426,8 +466,33 @@ export default function App() {
     );
   }, [availableEvents, searchQuery]);
 
-  const joinEvent = (eventId: number) => {
+  const joinEvent = async (eventId: EventId) => {
     if (joined.includes(eventId)) return;
+    setEventError("");
+
+    if (typeof eventId === "string") {
+      setEventActionLoading(true);
+      try {
+        const result = await joinDatabaseEvent(eventId);
+        setJoined((items) => [...items, eventId]);
+        setEvent((current) =>
+          current?.id === eventId
+            ? {
+                ...current,
+                spots: result.spots_remaining,
+                attendeeCount: result.attendee_count,
+              }
+            : current,
+        );
+        await refreshRealEvents();
+      } catch (error) {
+        setEventError(error instanceof Error ? error.message : "You could not join this event.");
+      } finally {
+        setEventActionLoading(false);
+      }
+      return;
+    }
+
     const sourceEvent = events.find((item) => item.id === eventId);
     const spots = remainingSpots[eventId] ?? sourceEvent?.spots ?? 0;
     if (spots <= 0) return;
@@ -439,8 +504,34 @@ export default function App() {
     }));
   };
 
-  const leaveEvent = (eventId: number, reason: string) => {
+  const leaveEvent = async (eventId: EventId, reason: string) => {
     if (!joined.includes(eventId) || !reason.trim()) return;
+    setEventError("");
+
+    if (typeof eventId === "string") {
+      setEventActionLoading(true);
+      try {
+        const result = await leaveDatabaseEvent(eventId, reason);
+        setJoined((items) => items.filter((id) => id !== eventId));
+        setEvent((current) =>
+          current?.id === eventId
+            ? {
+                ...current,
+                spots: result.spots_remaining,
+                attendeeCount: result.attendee_count,
+              }
+            : current,
+        );
+        await refreshRealEvents();
+      } catch (error) {
+        setEventError(error instanceof Error ? error.message : "You could not leave this event.");
+        throw error;
+      } finally {
+        setEventActionLoading(false);
+      }
+      return;
+    }
+
     const sourceEvent = events.find((item) => item.id === eventId);
     const initialSpots = sourceEvent?.spots ?? 0;
 
@@ -505,7 +596,7 @@ export default function App() {
     closePhotoEditor();
   };
 
-  const publishEvent = () => {
+  const publishEvent = async () => {
     if (
       !createForm.title ||
       !createForm.category ||
@@ -515,10 +606,31 @@ export default function App() {
       similarEvent
     )
       return;
-    setHostedPlans((plans) => [...plans, createForm]);
-    setCreateOpen(false);
-    setCreateForm({ title: "", category: "", date: "", time: "", location: "", spots: "4" });
-    setTab("calendar");
+    if (!session) return;
+    setPublishingEvent(true);
+    setEventError("");
+    try {
+      const eventId = await createEvent({
+        hostId: session.user.id,
+        title: createForm.title,
+        category: createForm.category,
+        startsAt: resolveEventStart(createForm.date, createForm.time),
+        locationName: createForm.location,
+        capacity: Number(createForm.spots),
+      });
+      await refreshRealEvents();
+      const createdEvent = (await listAvailableEvents())
+        .map(toKinliiEvent)
+        .find((item) => item.id === eventId);
+      setCreateOpen(false);
+      setCreateForm({ title: "", category: "", date: "", time: "", location: "", spots: "4" });
+      setTab("discover");
+      if (createdEvent) setEvent(createdEvent);
+    } catch (error) {
+      setEventError(error instanceof Error ? error.message : "The event could not be published.");
+    } finally {
+      setPublishingEvent(false);
+    }
   };
 
   if (sessionLoading || (session && profileLoading && !profile)) {
@@ -619,10 +731,10 @@ export default function App() {
   }
 
   if (event) {
-    const selectedEvent = {
-      ...event,
-      spots: remainingSpots[event.id] ?? event.spots,
-    };
+    const selectedEvent =
+      typeof event.id === "number"
+        ? { ...event, spots: remainingSpots[event.id] ?? event.spots }
+        : event;
     return (
       <EventDetailsScreen
         event={selectedEvent}
@@ -636,6 +748,8 @@ export default function App() {
         setEvent={setEvent}
         onJoin={joinEvent}
         onLeave={leaveEvent}
+        actionError={eventError}
+        actionLoading={eventActionLoading}
         setSaved={setSaved}
         setCarpoolJoined={setCarpoolJoined}
       />
@@ -698,7 +812,7 @@ export default function App() {
             setCalendarSynced={setCalendarSynced}
             privateCalendar={privateCalendar}
             setPrivateCalendar={setPrivateCalendar}
-            hostedPlans={hostedPlans}
+            hostedPlans={hostedEvents}
             setEvent={setEvent}
           />
         )}
@@ -717,7 +831,7 @@ export default function App() {
             profileImage={profileImage}
             profileInput={profileInput}
             joinedCount={joined.length}
-            hostedCount={hostedPlans.length}
+            hostedCount={hostedEvents.length}
             personality={personality}
             selectedInterests={selectedInterests}
             setQuizStep={setQuizStep}
@@ -1080,6 +1194,7 @@ export default function App() {
             <button
               className="publish-button"
               disabled={
+                publishingEvent ||
                 !createForm.title ||
                 !createForm.category ||
                 !createForm.date ||
@@ -1087,11 +1202,20 @@ export default function App() {
                 !createForm.location ||
                 !!similarEvent
               }
-              onClick={publishEvent}
+              onClick={() => void publishEvent()}
             >
-              {similarEvent ? "Similar activity found" : "Publish activity"}{" "}
-              <Icon name="chevron" size={17} />
+              {publishingEvent
+                ? "Publishing…"
+                : similarEvent
+                  ? "Similar activity found"
+                  : "Publish activity"}{" "}
+              {!publishingEvent && <Icon name="chevron" size={17} />}
             </button>
+            {eventError && (
+              <p className="create-error" role="alert">
+                {eventError}
+              </p>
+            )}
             <p className="host-safety">
               <Icon name="check" size={13} /> Events must use public venues and follow Kinlii’s
               student safety guidelines.
