@@ -46,6 +46,26 @@ export async function markPasswordSet(userId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function uploadProfileAvatar(userId: string, image: Blob): Promise<string> {
+  const client = requireSupabase();
+  const objectPath = `${userId}/avatar.jpg`;
+  const { error: uploadError } = await client.storage.from("avatars").upload(objectPath, image, {
+    contentType: "image/jpeg",
+    cacheControl: "3600",
+    upsert: true,
+  });
+  if (uploadError) throw uploadError;
+
+  const { data } = client.storage.from("avatars").getPublicUrl(objectPath);
+  const avatarUrl = `${data.publicUrl}?v=${Date.now()}`;
+  const { error: profileError } = await client
+    .from("profiles")
+    .update({ avatar_url: avatarUrl })
+    .eq("id", userId);
+  if (profileError) throw profileError;
+  return avatarUrl;
+}
+
 export async function getProfile(userId: string): Promise<UserProfile> {
   const { data, error } = await requireSupabase()
     .from("profiles")

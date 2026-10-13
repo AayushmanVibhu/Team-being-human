@@ -31,6 +31,7 @@ import {
   completeOnboarding,
   getProfile,
   markPasswordSet,
+  uploadProfileAvatar,
   updateProfile,
   type UserProfile,
 } from "./repositories/profileRepository";
@@ -133,9 +134,10 @@ export default function App() {
     spots: "4",
   });
   const [searchQuery, setSearchQuery] = useState("");
-  const [profileImage, setProfileImage] = usePersistentState("kinlii:profile-image", "");
+  const [profileImage, setProfileImage] = useState("");
   const [pendingProfileImage, setPendingProfileImage] = useState("");
   const [profileImageError, setProfileImageError] = useState("");
+  const [profileImageSaving, setProfileImageSaving] = useState(false);
   const [cropZoom, setCropZoom] = useState(1);
   const [cropX, setCropX] = useState(0);
   const [cropY, setCropY] = useState(0);
@@ -199,6 +201,7 @@ export default function App() {
         setDisplayName(nextProfile.displayName);
         setUniversityName(nextProfile.universityName);
         setBio(nextProfile.bio);
+        setProfileImage(nextProfile.avatarUrl ?? "");
         setScreen(
           !nextProfile.passwordSet
             ? "set-password"
@@ -649,8 +652,28 @@ export default function App() {
     const y = (size - height) / 2 - (cropY / 100) * movableY;
 
     context.drawImage(image, x, y, width, height);
-    setProfileImage(canvas.toDataURL("image/jpeg", 0.9));
-    closePhotoEditor();
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.9),
+    );
+    if (!blob || !session) {
+      setProfileImageError("The cropped image could not be saved. Please try again.");
+      return;
+    }
+
+    setProfileImageError("");
+    setProfileImageSaving(true);
+    try {
+      const avatarUrl = await uploadProfileAvatar(session.user.id, blob);
+      setProfileImage(avatarUrl);
+      setProfile((current) => (current ? { ...current, avatarUrl } : current));
+      closePhotoEditor();
+    } catch (error) {
+      setProfileImageError(
+        error instanceof Error ? error.message : "Your profile photo could not be uploaded.",
+      );
+    } finally {
+      setProfileImageSaving(false);
+    }
   };
 
   const publishEvent = async () => {
@@ -854,7 +877,7 @@ export default function App() {
           aria-label="Add profile picture"
         >
           {profileImage ? (
-            <img src={profileImage} alt="Alex Shah" />
+            <img src={profileImage} alt={profile?.displayName || "Profile"} />
           ) : (
             <>
               <Icon name="user" size={19} />
@@ -984,8 +1007,12 @@ export default function App() {
               <button className="secondary-button" onClick={closePhotoEditor}>
                 Cancel
               </button>
-              <button className="primary-button" onClick={() => void saveCroppedProfileImage()}>
-                Use photo
+              <button
+                className="primary-button"
+                disabled={profileImageSaving}
+                onClick={() => void saveCroppedProfileImage()}
+              >
+                {profileImageSaving ? "Uploading…" : "Use photo"}
               </button>
             </div>
           </section>
