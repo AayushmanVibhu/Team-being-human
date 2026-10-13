@@ -635,6 +635,63 @@ em {
   margin-bottom: 8px;
 }
 
+.auth-configuration-error .primary-button {
+  margin-top: 24px;
+  max-width: 280px;
+}
+
+.flow-header-spacer {
+  width: 38px;
+}
+
+.profile-setup-content .edu-input {
+  margin-top: 18px;
+}
+
+.profile-mark {
+  color: #315c49;
+}
+
+.profile-bio-input {
+  display: block;
+  margin-top: 18px;
+  text-align: left;
+}
+
+.profile-bio-input > span {
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.profile-bio-input > span small,
+.profile-bio-input > small {
+  color: #7a817c;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.profile-bio-input textarea {
+  background: #fff;
+  border: 1px solid #d9d5cc;
+  border-radius: 12px;
+  box-sizing: border-box;
+  color: #1f2923;
+  font: inherit;
+  min-height: 92px;
+  padding: 13px;
+  resize: vertical;
+  width: 100%;
+}
+
+.profile-bio-input > small {
+  display: block;
+  margin-top: 5px;
+  text-align: right;
+}
+
 .sign-out-row strong {
   color: #a22d24;
 }

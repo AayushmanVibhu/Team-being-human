@@ -333,6 +333,8 @@ export function AlertsScreen({ alertsEnabled, setAlertsEnabled, setEvent }: Aler
 
 type ProfileScreenProps = {
   accountEmail: string;
+  displayName: string;
+  universityName: string;
   profileImage: string;
   profileInput: RefObject<HTMLInputElement | null>;
   joinedCount: number;
@@ -347,6 +349,8 @@ type ProfileScreenProps = {
 
 export function ProfileScreen({
   accountEmail,
+  displayName,
+  universityName,
   profileImage,
   profileInput,
   joinedCount,
@@ -360,6 +364,13 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const joined = { length: joinedCount };
   const hostedPlans = { length: hostedCount };
+  const initials =
+    displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "K";
   return (
     <>
       <section className="profile-card">
@@ -368,13 +379,13 @@ export function ProfileScreen({
           onClick={() => profileInput.current?.click()}
           aria-label="Upload profile picture"
         >
-          {profileImage ? <img src={profileImage} alt="Alex Shah" /> : "AS"}
+          {profileImage ? <img src={profileImage} alt={displayName} /> : initials}
           <span>
             <Icon name="check" size={12} />
           </span>
         </button>
-        <h2>Alex Shah</h2>
-        <p>ASU · Verified student</p>
+        <h2>{displayName}</h2>
+        <p>{universityName} · Verified student</p>
         <div>
           <span>
             <strong>{joined.length}</strong>Plans joined

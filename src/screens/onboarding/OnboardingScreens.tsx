@@ -205,6 +205,107 @@ export function VerificationScreen(props: VerificationScreenProps) {
   );
 }
 
+type ProfileSetupScreenProps = {
+  bio: string;
+  displayName: string;
+  error: string;
+  loading: boolean;
+  onContinue: () => Promise<void>;
+  setBio: Dispatch<SetStateAction<string>>;
+  setDisplayName: Dispatch<SetStateAction<string>>;
+  setUniversityName: Dispatch<SetStateAction<string>>;
+  universityName: string;
+};
+
+export function ProfileSetupScreen(props: ProfileSetupScreenProps) {
+  const {
+    bio,
+    displayName,
+    error,
+    loading,
+    onContinue,
+    setBio,
+    setDisplayName,
+    setUniversityName,
+    universityName,
+  } = props;
+  const formComplete = displayName.trim().length >= 2 && universityName.trim().length >= 2;
+
+  return (
+    <div className="phone-shell onboarding verify-screen">
+      <header className="flow-header">
+        <span className="flow-header-spacer" />
+        <Progress step={2} total={5} />
+        <span>Profile</span>
+      </header>
+      <main className="verification-content profile-setup-content">
+        <div className="verification-mark profile-mark">
+          <Icon name="user" size={31} />
+        </div>
+        <span className="step-label">WELCOME TO KINLII</span>
+        <h1>Create your profile</h1>
+        <p>Tell your future groups who they’ll be meeting. You can update these details later.</p>
+
+        <label className="edu-input">
+          <span>Your name</span>
+          <div>
+            <Icon name="user" size={18} />
+            <input
+              autoComplete="name"
+              maxLength={60}
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+              placeholder="Aayushman"
+            />
+          </div>
+        </label>
+
+        <label className="edu-input">
+          <span>University</span>
+          <div>
+            <Icon name="location" size={18} />
+            <input
+              maxLength={100}
+              value={universityName}
+              onChange={(event) => setUniversityName(event.target.value)}
+              placeholder="Arizona State University"
+            />
+          </div>
+        </label>
+
+        <label className="profile-bio-input">
+          <span>
+            Short bio <small>Optional</small>
+          </span>
+          <textarea
+            maxLength={180}
+            value={bio}
+            onChange={(event) => setBio(event.target.value)}
+            placeholder="What do you enjoy doing with new people?"
+          />
+          <small>{bio.length}/180</small>
+        </label>
+
+        {error && (
+          <p className="auth-error" role="alert">
+            {error}
+          </p>
+        )}
+      </main>
+      <div className="bottom-action">
+        <button
+          className="primary-button"
+          disabled={loading || !formComplete}
+          onClick={() => void onContinue()}
+        >
+          {loading ? "Saving…" : "Continue"} {!loading && <Icon name="chevron" />}
+        </button>
+        <p>Your email is verified. Your profile details remain editable.</p>
+      </div>
+    </div>
+  );
+}
+
 type InterestSelectionScreenProps = {
   chooseInterest: (name: string) => void;
   selectedInterests: string[];
@@ -348,10 +449,14 @@ export function PersonalityQuizScreen(props: PersonalityQuizScreenProps) {
 
 export function PersonalityResultScreen({
   personality,
-  setScreen,
+  completing,
+  completionError,
+  onComplete,
 }: {
   personality: Personality;
-  setScreen: SetScreen;
+  completing: boolean;
+  completionError: string;
+  onComplete: () => Promise<void>;
 }) {
   return (
     <div className="phone-shell onboarding result-screen">
@@ -406,8 +511,14 @@ export function PersonalityResultScreen({
         </section>
       </main>
       <div className="bottom-action">
-        <button className="primary-button" onClick={() => setScreen("app")}>
-          Let’s touch grass <Icon name="chevron" />
+        {completionError && (
+          <p className="auth-error" role="alert">
+            {completionError}
+          </p>
+        )}
+        <button className="primary-button" disabled={completing} onClick={() => void onComplete()}>
+          {completing ? "Saving your profile…" : "Let’s touch grass"}{" "}
+          {!completing && <Icon name="chevron" />}
         </button>
       </div>
     </div>

@@ -11,6 +11,7 @@ import {
   InterestSelectionScreen,
   PersonalityQuizScreen,
   PersonalityResultScreen,
+  ProfileSetupScreen,
   VerificationScreen,
   WelcomeScreen,
 } from "./screens/onboarding/OnboardingScreens";
@@ -19,6 +20,12 @@ import { usePersistentState } from "./hooks/usePersistentState";
 import { useAuthSession } from "./hooks/useAuthSession";
 import { sendSignInCode, signOut, verifySignInCode } from "./repositories/authRepository";
 import { hasSupabaseConfig } from "./lib/supabase";
+import {
+  completeOnboarding,
+  getProfile,
+  updateProfile,
+  type UserProfile,
+} from "./repositories/profileRepository";
 import { communityAssistant } from "./services/communityAssistant";
 import { findSimilarEvents } from "./services/duplicateEventService";
 
@@ -74,6 +81,12 @@ export default function App() {
   const [verificationCode, setVerificationCode] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [universityName, setUniversityName] = useState("");
+  const [bio, setBio] = useState("");
   const [calendarSynced, setCalendarSynced] = usePersistentState(
     "kinlii:calendar-connected",
     false,
@@ -110,12 +123,41 @@ export default function App() {
 
   useEffect(() => {
     if (sessionLoading) return;
-    if (session && screen === "verify") {
-      setScreen("interests");
+    if (!session) {
+      setProfile(null);
+      if (!["welcome", "verify"].includes(screen)) setScreen("welcome");
       return;
     }
-    if (!session && !["welcome", "verify"].includes(screen)) setScreen("welcome");
-  }, [screen, session, sessionLoading, setScreen]);
+
+    let active = true;
+    setProfileLoading(true);
+    setProfileError("");
+
+    void getProfile(session.user.id)
+      .then((nextProfile) => {
+        if (!active) return;
+        setProfile(nextProfile);
+        setDisplayName(nextProfile.displayName);
+        setUniversityName(nextProfile.universityName);
+        setBio(nextProfile.bio);
+        setScreen(nextProfile.onboardingCompleted ? "app" : "profile-setup");
+      })
+      .catch((error) => {
+        if (!active) return;
+        setProfileError(
+          error instanceof Error ? error.message : "Your profile could not be loaded.",
+        );
+      })
+      .finally(() => {
+        if (active) setProfileLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+    // Profile routing should run only when the authenticated account changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id, sessionLoading]);
 
   const requestSignInCode = async () => {
     setAuthLoading(true);
@@ -138,11 +180,46 @@ export default function App() {
     try {
       const nextSession = await verifySignInCode(schoolEmail, verificationCode);
       if (!nextSession) throw new Error("Verification succeeded, but no session was created.");
-      setScreen("interests");
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "That code could not be verified.");
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const saveInitialProfile = async () => {
+    if (!session) return;
+    setProfileLoading(true);
+    setProfileError("");
+    try {
+      const nextProfile = await updateProfile(session.user.id, {
+        displayName,
+        universityName,
+        bio,
+      });
+      setProfile(nextProfile);
+      setScreen("interests");
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : "Your profile could not be saved.");
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const finishOnboarding = async () => {
+    if (!session) return;
+    setProfileLoading(true);
+    setProfileError("");
+    try {
+      await completeOnboarding(session.user.id, selectedInterests);
+      setProfile((current) => (current ? { ...current, onboardingCompleted: true } : current));
+      setScreen("app");
+    } catch (error) {
+      setProfileError(
+        error instanceof Error ? error.message : "Onboarding could not be completed.",
+      );
+    } finally {
+      setProfileLoading(false);
     }
   };
 
@@ -396,7 +473,7 @@ export default function App() {
     setTab("calendar");
   };
 
-  if (sessionLoading) {
+  if (sessionLoading || (session && profileLoading && !profile)) {
     return <div className="phone-shell auth-loading-screen" aria-label="Loading Kinlii" />;
   }
 
@@ -431,6 +508,34 @@ export default function App() {
     );
   }
 
+  if (session && profileError && !profile) {
+    return (
+      <div className="phone-shell auth-configuration-error">
+        <h1>We couldn’t load your profile</h1>
+        <p>{profileError}</p>
+        <button className="primary-button" onClick={() => window.location.reload()}>
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  if (screen === "profile-setup") {
+    return (
+      <ProfileSetupScreen
+        bio={bio}
+        displayName={displayName}
+        error={profileError}
+        loading={profileLoading}
+        onContinue={saveInitialProfile}
+        setBio={setBio}
+        setDisplayName={setDisplayName}
+        setUniversityName={setUniversityName}
+        universityName={universityName}
+      />
+    );
+  }
+
   if (screen === "interests") {
     return (
       <InterestSelectionScreen
@@ -455,7 +560,14 @@ export default function App() {
   }
 
   if (screen === "result") {
-    return <PersonalityResultScreen personality={personality} setScreen={setScreen} />;
+    return (
+      <PersonalityResultScreen
+        personality={personality}
+        completing={profileLoading}
+        completionError={profileError}
+        onComplete={finishOnboarding}
+      />
+    );
   }
 
   if (event) {
@@ -546,6 +658,8 @@ export default function App() {
         {tab === "profile" && (
           <ProfileScreen
             accountEmail={session?.user.email ?? ""}
+            displayName={profile?.displayName || displayName}
+            universityName={profile?.universityName || universityName}
             profileImage={profileImage}
             profileInput={profileInput}
             joinedCount={joined.length}

@@ -1,4 +1,11 @@
-export type Screen = "welcome" | "verify" | "interests" | "quiz" | "result" | "app";
+export type Screen =
+  | "welcome"
+  | "verify"
+  | "profile-setup"
+  | "interests"
+  | "quiz"
+  | "result"
+  | "app";
 
 export type Tab = "discover" | "calendar" | "alerts" | "profile";
 
