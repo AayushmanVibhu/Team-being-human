@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "./components/ui/Icon";
 import { EventDetailsScreen } from "./screens/events/EventDetailsScreen";
 import {
@@ -16,6 +16,9 @@ import {
 } from "./screens/onboarding/OnboardingScreens";
 import { events, questions } from "./data/kinliiData";
 import { usePersistentState } from "./hooks/usePersistentState";
+import { useAuthSession } from "./hooks/useAuthSession";
+import { sendSignInCode, signOut, verifySignInCode } from "./repositories/authRepository";
+import { hasSupabaseConfig } from "./lib/supabase";
 import { communityAssistant } from "./services/communityAssistant";
 import { findSimilarEvents } from "./services/duplicateEventService";
 
@@ -48,6 +51,7 @@ type AssistantAction = {
 };
 
 export default function App() {
+  const { session, loading: sessionLoading } = useAuthSession();
   const [screen, setScreen] = usePersistentState("kinlii:screen", "welcome" as Screen);
   const [selectedInterests, setSelectedInterests] = usePersistentState("kinlii:interests", [
     "Outdoors",
@@ -68,6 +72,8 @@ export default function App() {
   const [schoolEmail, setSchoolEmail] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [calendarSynced, setCalendarSynced] = usePersistentState(
     "kinlii:calendar-connected",
     false,
@@ -101,6 +107,52 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [profileImage, setProfileImage] = usePersistentState("kinlii:profile-image", "");
   const profileInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (sessionLoading) return;
+    if (!session && !["welcome", "verify"].includes(screen)) setScreen("welcome");
+  }, [screen, session, sessionLoading, setScreen]);
+
+  const requestSignInCode = async () => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      await sendSignInCode(schoolEmail);
+      setCodeSent(true);
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : "Could not send the verification code.",
+      );
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const confirmSignInCode = async () => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const nextSession = await verifySignInCode(schoolEmail, verificationCode);
+      if (!nextSession) throw new Error("Verification succeeded, but no session was created.");
+      setScreen("interests");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "That code could not be verified.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setAuthError("");
+    try {
+      await signOut();
+      setCodeSent(false);
+      setVerificationCode("");
+      setScreen("welcome");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Could not sign out.");
+    }
+  };
 
   const chooseInterest = (name: string) => {
     setSelectedInterests((items) =>
@@ -340,14 +392,31 @@ export default function App() {
     setTab("calendar");
   };
 
-  if (screen === "welcome") {
+  if (sessionLoading) {
+    return <div className="phone-shell auth-loading-screen" aria-label="Loading Kinlii" />;
+  }
+
+  if (!hasSupabaseConfig) {
+    return (
+      <div className="phone-shell auth-configuration-error">
+        <h1>Kinlii needs configuration</h1>
+        <p>The Supabase environment variables are missing from this deployment.</p>
+      </div>
+    );
+  }
+
+  if (!session && screen !== "verify") {
     return <WelcomeScreen setScreen={setScreen} />;
   }
 
-  if (screen === "verify") {
+  if (!session && screen === "verify") {
     return (
       <VerificationScreen
+        authError={authError}
+        authLoading={authLoading}
         codeSent={codeSent}
+        onSendCode={requestSignInCode}
+        onVerifyCode={confirmSignInCode}
         schoolEmail={schoolEmail}
         setCodeSent={setCodeSent}
         setSchoolEmail={setSchoolEmail}
@@ -472,6 +541,7 @@ export default function App() {
         )}
         {tab === "profile" && (
           <ProfileScreen
+            accountEmail={session?.user.email ?? ""}
             profileImage={profileImage}
             profileInput={profileInput}
             joinedCount={joined.length}
@@ -481,6 +551,7 @@ export default function App() {
             setQuizStep={setQuizStep}
             setScreen={setScreen}
             setAccessibilityOpen={setAccessibilityOpen}
+            onSignOut={handleSignOut}
           />
         )}
       </main>

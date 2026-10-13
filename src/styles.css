@@ -555,6 +555,35 @@ em {
   max-width: 345px;
   margin: 0 auto 24px;
 }
+
+.verification-content .auth-error {
+  color: #a22d24;
+  font-size: 13px;
+  font-weight: 650;
+  margin-top: 14px;
+}
+
+.auth-loading-screen {
+  background: #f7f2e9;
+}
+
+.auth-configuration-error {
+  align-items: center;
+  background: #f7f2e9;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.auth-configuration-error h1 {
+  margin-bottom: 8px;
+}
+
+.sign-out-row strong {
+  color: #a22d24;
+}
 .edu-input {
   display: block;
   text-align: left;

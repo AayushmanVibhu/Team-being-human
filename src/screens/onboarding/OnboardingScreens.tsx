@@ -12,7 +12,7 @@ export function WelcomeScreen({ setScreen }: { setScreen: SetScreen }) {
     <div className="phone-shell onboarding welcome-screen">
       <header className="simple-header">
         <Logo />
-        <button onClick={() => setScreen("app")}>Skip</button>
+        <button onClick={() => setScreen("verify")}>Sign in</button>
       </header>
       <div className="hero-visual">
         <div className="orbit orbit-one" />
@@ -54,7 +54,11 @@ export function WelcomeScreen({ setScreen }: { setScreen: SetScreen }) {
 }
 
 type VerificationScreenProps = {
+  authError: string;
+  authLoading: boolean;
   codeSent: boolean;
+  onSendCode: () => Promise<void>;
+  onVerifyCode: () => Promise<void>;
   schoolEmail: string;
   setCodeSent: Dispatch<SetStateAction<boolean>>;
   setSchoolEmail: Dispatch<SetStateAction<string>>;
@@ -65,7 +69,11 @@ type VerificationScreenProps = {
 
 export function VerificationScreen(props: VerificationScreenProps) {
   const {
+    authError,
+    authLoading,
     codeSent,
+    onSendCode,
+    onVerifyCode,
     schoolEmail,
     setCodeSent,
     setSchoolEmail,
@@ -155,21 +163,31 @@ export function VerificationScreen(props: VerificationScreenProps) {
                 placeholder="000000"
               />
             </div>
-            <small>For this prototype, enter any six digits.</small>
+            <small>Enter the six-digit code from your university inbox.</small>
           </label>
+        )}
+        {authError && (
+          <p className="auth-error" role="alert">
+            {authError}
+          </p>
         )}
       </main>
       <div className="bottom-action">
         <button
           className="primary-button"
-          disabled={codeSent ? verificationCode.length !== 6 : !validEmail}
-          onClick={() => (codeSent ? setScreen("interests") : setCodeSent(true))}
+          disabled={authLoading || (codeSent ? verificationCode.length !== 6 : !validEmail)}
+          onClick={() => void (codeSent ? onVerifyCode() : onSendCode())}
         >
-          {codeSent ? "Verify and continue" : "Send verification code"} <Icon name="chevron" />
+          {authLoading
+            ? "Please wait…"
+            : codeSent
+              ? "Verify and continue"
+              : "Send verification code"}{" "}
+          {!authLoading && <Icon name="chevron" />}
         </button>
         <p>
           {codeSent
-            ? "Didn't receive it? Resend code"
+            ? "Didn't receive it? Go back and send a new code."
             : "By continuing, you agree to our community guidelines."}
         </p>
       </div>

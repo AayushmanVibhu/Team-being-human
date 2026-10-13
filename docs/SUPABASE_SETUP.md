@@ -1,5 +1,16 @@
 # Supabase setup
 
+## Authentication email template
+
+Kinlii uses a six-digit email OTP. In the Supabase dashboard, open **Authentication → Email
+Templates → Magic Link** and make sure the message contains `{{ .Token }}`. If the template uses
+only `{{ .ConfirmationURL }}`, users will receive a link instead of the code requested by the app.
+
+For production, also open **Authentication → URL Configuration** and set:
+
+- Site URL: `https://kinlii.vercel.app`
+- Redirect URL: `https://kinlii.vercel.app/**`
+
 The application continues using its local prototype data until the database migration and environment variables are configured. This prevents an empty or partially configured database from breaking the deployed app.
 
 ## 1. Apply the schema

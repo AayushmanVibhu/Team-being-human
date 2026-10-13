@@ -332,6 +332,7 @@ export function AlertsScreen({ alertsEnabled, setAlertsEnabled, setEvent }: Aler
 }
 
 type ProfileScreenProps = {
+  accountEmail: string;
   profileImage: string;
   profileInput: RefObject<HTMLInputElement | null>;
   joinedCount: number;
@@ -341,9 +342,11 @@ type ProfileScreenProps = {
   setQuizStep: Dispatch<SetStateAction<number>>;
   setScreen: Dispatch<SetStateAction<Screen>>;
   setAccessibilityOpen: Dispatch<SetStateAction<boolean>>;
+  onSignOut: () => Promise<void>;
 };
 
 export function ProfileScreen({
+  accountEmail,
   profileImage,
   profileInput,
   joinedCount,
@@ -353,6 +356,7 @@ export function ProfileScreen({
   setQuizStep,
   setScreen,
   setAccessibilityOpen,
+  onSignOut,
 }: ProfileScreenProps) {
   const joined = { length: joinedCount };
   const hostedPlans = { length: hostedCount };
@@ -427,6 +431,16 @@ export function ProfileScreen({
         <div>
           <strong>Accessibility & assistance</strong>
           <small>Visual, hearing, and voice preferences</small>
+        </div>
+        <Icon name="chevron" />
+      </button>
+      <button className="settings-row sign-out-row" onClick={() => void onSignOut()}>
+        <span>
+          <Icon name="arrow" />
+        </span>
+        <div>
+          <strong>Sign out</strong>
+          <small>{accountEmail}</small>
         </div>
         <Icon name="chevron" />
       </button>
