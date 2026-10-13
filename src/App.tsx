@@ -30,6 +30,12 @@ export type HostedPlan = {
   spots: string;
 };
 
+export type LeaveRecord = {
+  eventId: number;
+  reason: string;
+  leftAt: string;
+};
+
 export default function App() {
   const [screen, setScreen] = usePersistentState("kinlii:screen", "welcome" as Screen);
   const [selectedInterests, setSelectedInterests] = usePersistentState("kinlii:interests", [
@@ -41,6 +47,11 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("discover");
   const [event, setEvent] = useState<(typeof events)[number] | null>(null);
   const [joined, setJoined] = usePersistentState("kinlii:joined", [] as number[]);
+  const [remainingSpots, setRemainingSpots] = usePersistentState(
+    "kinlii:remaining-spots",
+    Object.fromEntries(events.map((item) => [item.id, item.spots])) as Record<number, number>,
+  );
+  const [, setLeaveRecords] = usePersistentState("kinlii:leave-records", [] as LeaveRecord[]);
   const [saved, setSaved] = usePersistentState("kinlii:saved", [] as number[]);
   const [alertsEnabled, setAlertsEnabled] = usePersistentState("kinlii:nearby-alerts", true);
   const [schoolEmail, setSchoolEmail] = useState("");
@@ -125,7 +136,7 @@ export default function App() {
               ? "tomorrow"
               : "weekend",
           period: item.time.includes("AM") ? "morning" : "evening",
-          attendees: 4 - item.spots,
+          attendees: 4 - (remainingSpots[item.id] ?? item.spots),
           capacity: 4,
           newcomers: true,
           instantJoin: true,
@@ -245,15 +256,55 @@ export default function App() {
     );
   }, [createForm]);
 
+  const availableEvents = useMemo(
+    () =>
+      events
+        .map((item) => ({
+          ...item,
+          spots: remainingSpots[item.id] ?? item.spots,
+        }))
+        .filter((item) => item.spots > 0),
+    [remainingSpots],
+  );
+
   const visibleEvents = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return events;
-    return events.filter((item) =>
+    if (!query) return availableEvents;
+    return availableEvents.filter((item) =>
       [item.title, item.type, item.place, ...item.tags].some((value) =>
         value.toLowerCase().includes(query),
       ),
     );
-  }, [searchQuery]);
+  }, [availableEvents, searchQuery]);
+
+  const joinEvent = (eventId: number) => {
+    if (joined.includes(eventId)) return;
+    const sourceEvent = events.find((item) => item.id === eventId);
+    const spots = remainingSpots[eventId] ?? sourceEvent?.spots ?? 0;
+    if (spots <= 0) return;
+
+    setJoined((items) => [...items, eventId]);
+    setRemainingSpots((current) => ({
+      ...current,
+      [eventId]: Math.max(0, spots - 1),
+    }));
+  };
+
+  const leaveEvent = (eventId: number, reason: string) => {
+    if (!joined.includes(eventId) || !reason.trim()) return;
+    const sourceEvent = events.find((item) => item.id === eventId);
+    const initialSpots = sourceEvent?.spots ?? 0;
+
+    setJoined((items) => items.filter((id) => id !== eventId));
+    setRemainingSpots((current) => ({
+      ...current,
+      [eventId]: Math.min(initialSpots, (current[eventId] ?? initialSpots) + 1),
+    }));
+    setLeaveRecords((records) => [
+      ...records,
+      { eventId, reason: reason.trim(), leftAt: new Date().toISOString() },
+    ]);
+  };
 
   const uploadProfileImage = (file?: File) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -324,9 +375,13 @@ export default function App() {
   }
 
   if (event) {
+    const selectedEvent = {
+      ...event,
+      spots: remainingSpots[event.id] ?? event.spots,
+    };
     return (
       <EventDetailsScreen
-        event={event}
+        event={selectedEvent}
         joined={joined}
         saved={saved}
         carpoolJoined={carpoolJoined}
@@ -335,7 +390,8 @@ export default function App() {
         reading={reading}
         readPage={readPage}
         setEvent={setEvent}
-        setJoined={setJoined}
+        onJoin={joinEvent}
+        onLeave={leaveEvent}
         setSaved={setSaved}
         setCarpoolJoined={setCarpoolJoined}
       />

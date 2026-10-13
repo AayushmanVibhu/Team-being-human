@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 
 import { Icon } from "../../components/ui/Icon";
 import type { KinliiEvent } from "../../data/kinliiData";
@@ -13,7 +13,8 @@ type EventDetailsScreenProps = {
   reading: boolean;
   readPage: () => void;
   setEvent: Dispatch<SetStateAction<KinliiEvent | null>>;
-  setJoined: Dispatch<SetStateAction<number[]>>;
+  onJoin: (eventId: number) => void;
+  onLeave: (eventId: number, reason: string) => void;
   setSaved: Dispatch<SetStateAction<number[]>>;
   setCarpoolJoined: Dispatch<SetStateAction<number[]>>;
 };
@@ -28,12 +29,15 @@ export function EventDetailsScreen({
   reading,
   readPage,
   setEvent,
-  setJoined,
+  onJoin,
+  onLeave,
   setSaved,
   setCarpoolJoined,
 }: EventDetailsScreenProps) {
   const isJoined = joined.includes(event.id);
   const hasCarpool = carpoolJoined.includes(event.id);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [leaveReason, setLeaveReason] = useState("");
 
   const toggleSaved = () => {
     setSaved((items) =>
@@ -47,8 +51,11 @@ export function EventDetailsScreen({
     );
   };
 
-  const joinEvent = () => {
-    setJoined((items) => (items.includes(event.id) ? items : [...items, event.id]));
+  const submitLeave = () => {
+    if (!leaveReason) return;
+    onLeave(event.id, leaveReason);
+    setLeaveReason("");
+    setLeaveDialogOpen(false);
   };
 
   return (
@@ -132,7 +139,9 @@ export function EventDetailsScreen({
               <h2>Meet the group</h2>
               <p>2 of 4 verified students joined</p>
             </div>
-            <span>{event.spots} spots left</span>
+            <span>
+              {event.spots} spot{event.spots === 1 ? "" : "s"} left
+            </span>
           </div>
           <div className="member-list">
             <div>
@@ -204,18 +213,71 @@ export function EventDetailsScreen({
       <div className="event-action">
         <div>
           <strong>Free</strong>
-          <span>{event.spots} spots available</span>
+          <span>
+            {event.spots} spot{event.spots === 1 ? "" : "s"} available
+          </span>
         </div>
-        <button onClick={joinEvent}>
+        <button
+          className={isJoined ? "joined-event-button" : ""}
+          onClick={() => (isJoined ? setLeaveDialogOpen(true) : onJoin(event.id))}
+        >
           {isJoined ? (
             <>
-              <Icon name="check" size={18} /> You’re going
+              <Icon name="check" size={18} /> You’re going · Leave
             </>
           ) : (
             "Join group"
           )}
         </button>
       </div>
+
+      {leaveDialogOpen && (
+        <div className="leave-dialog-backdrop" role="presentation">
+          <section
+            className="leave-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="leave-dialog-title"
+          >
+            <header>
+              <span>
+                <Icon name="calendar" size={19} />
+              </span>
+              <div>
+                <h2 id="leave-dialog-title">Leave this activity?</h2>
+                <p>Your spot will immediately become available to someone else.</p>
+              </div>
+            </header>
+
+            <label htmlFor="leave-reason">Why are you leaving?</label>
+            <select
+              id="leave-reason"
+              value={leaveReason}
+              onChange={(changeEvent) => setLeaveReason(changeEvent.target.value)}
+            >
+              <option value="">Choose a reason</option>
+              <option value="Schedule conflict">Schedule conflict</option>
+              <option value="Transportation issue">Transportation issue</option>
+              <option value="No longer interested">No longer interested</option>
+              <option value="Personal reason">Personal reason</option>
+              <option value="Other">Other</option>
+            </select>
+
+            <p className="leave-dialog-note">
+              This reason stays private and helps the host understand attendance changes.
+            </p>
+
+            <div className="leave-dialog-actions">
+              <button type="button" onClick={() => setLeaveDialogOpen(false)}>
+                Keep my spot
+              </button>
+              <button type="button" disabled={!leaveReason} onClick={submitLeave}>
+                Confirm leave
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

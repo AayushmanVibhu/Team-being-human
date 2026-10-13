@@ -20,6 +20,8 @@ export function DiscoverScreen({
   setEvent,
   setTab,
 }: DiscoverScreenProps) {
+  const nearbyHighlight = visibleEvents.find((event) => event.id === 1);
+
   return (
     <>
       <label className="search-bar">
@@ -30,17 +32,22 @@ export function DiscoverScreen({
           placeholder="Search activities or interests"
         />
       </label>
-      <section className="nearby-alert">
-        <span>
-          <Icon name="location" />
-        </span>
-        <div>
-          <small>HAPPENING NEARBY</small>
-          <strong>Badminton starts in 2 hours</strong>
-          <p>0.4 miles away · 2 spots left</p>
-        </div>
-        <Icon name="chevron" size={18} />
-      </section>
+      {nearbyHighlight && (
+        <section className="nearby-alert">
+          <span>
+            <Icon name="location" />
+          </span>
+          <div>
+            <small>HAPPENING NEARBY</small>
+            <strong>Badminton starts in 2 hours</strong>
+            <p>
+              0.4 miles away · {nearbyHighlight.spots} spot
+              {nearbyHighlight.spots === 1 ? "" : "s"} left
+            </p>
+          </div>
+          <Icon name="chevron" size={18} />
+        </section>
+      )}
       <div className="section-heading">
         <div>
           <h2>Picked for you</h2>
@@ -75,7 +82,9 @@ export function DiscoverScreen({
                 <Icon name="location" size={14} /> {item.place} · {item.distance}
               </p>
               <footer>
-                <span>{item.spots} spots left</span>
+                <span>
+                  {item.spots} spot{item.spots === 1 ? "" : "s"} left
+                </span>
                 <i>View</i>
               </footer>
             </section>

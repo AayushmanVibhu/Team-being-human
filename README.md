@@ -71,3 +71,9 @@ The current app is a frontend prototype. Verification, calendar sync, notificati
 `npm run build` produces the deployable static app in `dist/`. The compatibility script converts Vite's `app.html` entry into `dist/index.html` for static hosting.
 
 GitHub Pages uses the repository path `/Team-being-human/`. The build configuration selects that path in GitHub Actions and `/` for other hosts such as the private preview site.
+
+### Vercel
+
+The tracked `vercel.json` configures Vercel to run the normal production build and publish `dist/`. Connect the GitHub repository in Vercel or run `vercel --prod` from the repository root. Vercel's local `.vercel/` project metadata and every `.env` file are intentionally ignored.
+
+Do not add secrets to source files. When backend services are introduced, document safe public variables in `.env.example` and store real values in Vercel's Environment Variables settings.

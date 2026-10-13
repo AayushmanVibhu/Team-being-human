@@ -75,7 +75,7 @@ export const events = [
     place: "SDFC courts",
     distance: "0.4 mi",
     match: 96,
-    spots: 2,
+    spots: 1,
     host: "Maya",
     activityIcon: "racquet" as IconName,
     tags: ["Badminton", "Beginner friendly", "Low-key"],
