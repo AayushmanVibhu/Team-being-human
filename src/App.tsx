@@ -71,6 +71,15 @@ type AssistantAction = {
   };
 };
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) {
+    const message = String(error.message);
+    if (message) return message;
+  }
+  return fallback;
+}
+
 export default function App() {
   const { session, loading: sessionLoading, passwordRecovery } = useAuthSession();
   const [screen, setScreen] = usePersistentState("kinlii:screen", "login" as Screen);
@@ -232,10 +241,10 @@ export default function App() {
           passwordRecovery
             ? "reset-password"
             : !nextProfile.passwordSet
-            ? "set-password"
-            : nextProfile.onboardingCompleted
-              ? "app"
-              : "profile-setup",
+              ? "set-password"
+              : nextProfile.onboardingCompleted
+                ? "app"
+                : "profile-setup",
         );
       })
       .catch((error) => {
@@ -591,7 +600,7 @@ export default function App() {
       );
       await refreshRealEvents();
     } catch (error) {
-      setEventError(error instanceof Error ? error.message : "You could not join this event.");
+      setEventError(getErrorMessage(error, "You could not join this event."));
     } finally {
       setEventActionLoading(false);
     }
@@ -612,7 +621,7 @@ export default function App() {
       );
       await refreshRealEvents();
     } catch (error) {
-      setEventError(error instanceof Error ? error.message : "You could not leave this event.");
+      setEventError(getErrorMessage(error, "You could not leave this event."));
       throw error;
     } finally {
       setEventActionLoading(false);
@@ -627,7 +636,7 @@ export default function App() {
       else await saveEvent(eventId);
       await refreshRealEvents();
     } catch (error) {
-      setEventError(error instanceof Error ? error.message : "This event could not be saved.");
+      setEventError(getErrorMessage(error, "This event could not be saved."));
     } finally {
       setEventActionLoading(false);
     }
@@ -797,7 +806,17 @@ export default function App() {
   }
 
   if (!session && screen === "forgot-password") {
-    return <ForgotPasswordScreen email={schoolEmail} error={authError} loading={authLoading} sent={resetEmailSent} onSend={requestPasswordReset} setEmail={setSchoolEmail} setScreen={setScreen} />;
+    return (
+      <ForgotPasswordScreen
+        email={schoolEmail}
+        error={authError}
+        loading={authLoading}
+        sent={resetEmailSent}
+        onSend={requestPasswordReset}
+        setEmail={setSchoolEmail}
+        setScreen={setScreen}
+      />
+    );
   }
 
   if (!session && screen !== "verify") {
@@ -816,7 +835,17 @@ export default function App() {
   }
 
   if (session && screen === "reset-password") {
-    return <PasswordSetupScreen confirmPassword={confirmPassword} error={authError} loading={authLoading} onSave={saveAccountPassword} password={newPassword} setConfirmPassword={setConfirmPassword} setPassword={setNewPassword} />;
+    return (
+      <PasswordSetupScreen
+        confirmPassword={confirmPassword}
+        error={authError}
+        loading={authLoading}
+        onSave={saveAccountPassword}
+        password={newPassword}
+        setConfirmPassword={setConfirmPassword}
+        setPassword={setNewPassword}
+      />
+    );
   }
 
   if (!session && screen === "verify") {
