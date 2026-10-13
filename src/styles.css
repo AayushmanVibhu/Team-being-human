@@ -1005,6 +1005,48 @@ em {
   z-index: 10;
   backdrop-filter: blur(12px);
 }
+
+.app-header-copy {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.app-header-brand {
+  border-right: 1px solid #e1e4de;
+  padding-right: 12px;
+}
+
+.app-header-brand .logo {
+  gap: 6px;
+}
+
+.app-header-brand .kinlii-mark {
+  border-radius: 10px;
+  height: 32px;
+  width: 32px;
+}
+
+.app-header-brand .kinlii-mark svg {
+  height: 25px;
+  width: 25px;
+}
+
+.app-header-brand .logo-copy b {
+  font-size: 17px;
+  letter-spacing: -0.7px;
+}
+
+.app-header-brand .logo-copy small {
+  display: none;
+}
+
+@media (max-width: 370px) {
+  .app-header-brand .logo-copy {
+    display: none;
+  }
+}
 .app-location {
   color: #677c72;
   font-size: 9px;

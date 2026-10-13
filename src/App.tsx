@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "./components/ui/Icon";
+import { Logo } from "./components/ui/Branding";
 import { EventDetailsScreen } from "./screens/events/EventDetailsScreen";
 import {
   AlertsScreen,
@@ -865,11 +866,16 @@ export default function App() {
       className={`phone-shell app-screen ${largeText ? "large-text" : ""} ${highContrast ? "high-contrast" : ""}`}
     >
       <header className="app-header">
-        <div>
-          <span className="app-location">
-            <i /> TEMPE CAMPUS <Icon name="chevron" size={13} />
-          </span>
-          <h1>{pageTitle}</h1>
+        <div className="app-header-copy">
+          <div className="app-header-brand">
+            <Logo />
+          </div>
+          <div>
+            <span className="app-location">
+              <i /> TEMPE CAMPUS <Icon name="chevron" size={13} />
+            </span>
+            <h1>{pageTitle}</h1>
+          </div>
         </div>
         <button
           className={`header-avatar ${profileImage ? "" : "skeleton-avatar"}`}
