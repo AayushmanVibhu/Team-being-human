@@ -689,6 +689,15 @@ em {
   text-underline-offset: 3px;
 }
 
+.create-account-link {
+  background: none;
+  border: 0;
+  color: #315c49;
+  font-size: 12px;
+  font-weight: 750;
+  padding: 8px;
+}
+
 .password-requirements {
   display: grid;
   gap: 8px;

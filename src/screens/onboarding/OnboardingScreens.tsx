@@ -66,14 +66,12 @@ type LoginScreenProps = {
 
 export function LoginScreen(props: LoginScreenProps) {
   const { email, error, loading, onSignIn, password, setEmail, setPassword, setScreen } = props;
-  const validEmail = /^[^\s@]+@[^\s@]+\.edu$/i.test(email);
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(email);
 
   return (
     <div className="phone-shell onboarding verify-screen">
       <header className="flow-header">
-        <button onClick={() => setScreen("welcome")}>
-          <Icon name="arrow" />
-        </button>
+        <span className="flow-header-spacer" />
         <Logo />
         <span>Sign in</span>
       </header>
@@ -119,18 +117,20 @@ export function LoginScreen(props: LoginScreenProps) {
         )}
 
         <button className="email-login-alternative" onClick={() => setScreen("verify")}>
-          Haven’t created a password yet? Use email verification
+          Already registered but no password? Verify by email
         </button>
       </main>
       <div className="bottom-action">
         <button
           className="primary-button"
-          disabled={loading || !validEmail || password.length < 8}
+          disabled={loading || !validEmail || !password}
           onClick={() => void onSignIn()}
         >
           {loading ? "Signing in…" : "Sign in"} {!loading && <Icon name="chevron" />}
         </button>
-        <p>New to Kinlii? Verify your student email first.</p>
+        <button className="create-account-link" onClick={() => setScreen("verify")}>
+          New to Kinlii? Create an account
+        </button>
       </div>
     </div>
   );
@@ -255,7 +255,7 @@ export function VerificationScreen(props: VerificationScreenProps) {
   return (
     <div className="phone-shell onboarding verify-screen">
       <header className="flow-header">
-        <button onClick={() => (codeSent ? setCodeSent(false) : setScreen("welcome"))}>
+        <button onClick={() => (codeSent ? setCodeSent(false) : setScreen("login"))}>
           <Icon name="arrow" />
         </button>
         <Progress step={1} total={4} />
@@ -267,8 +267,8 @@ export function VerificationScreen(props: VerificationScreenProps) {
           <span className="school-dot one" />
           <span className="school-dot two" />
         </div>
-        <span className="step-label">STUDENTS ONLY</span>
-        <h1>{codeSent ? "Check your inbox" : "Verify your student status"}</h1>
+        <span className="step-label">CREATE YOUR ACCOUNT</span>
+        <h1>{codeSent ? "Check your inbox" : "Verify your student email"}</h1>
         <p>
           {codeSent
             ? `We sent a secure sign-in email to ${schoolEmail}.`

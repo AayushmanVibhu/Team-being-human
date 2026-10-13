@@ -15,7 +15,6 @@ import {
   PersonalityResultScreen,
   ProfileSetupScreen,
   VerificationScreen,
-  WelcomeScreen,
 } from "./screens/onboarding/OnboardingScreens";
 import { events, questions, type EventId, type KinliiEvent } from "./data/kinliiData";
 import { usePersistentState } from "./hooks/usePersistentState";
@@ -68,7 +67,7 @@ type AssistantAction = {
 
 export default function App() {
   const { session, loading: sessionLoading } = useAuthSession();
-  const [screen, setScreen] = usePersistentState("kinlii:screen", "welcome" as Screen);
+  const [screen, setScreen] = usePersistentState("kinlii:screen", "login" as Screen);
   const [selectedInterests, setSelectedInterests] = usePersistentState("kinlii:interests", [
     "Outdoors",
     "Sports",
@@ -142,6 +141,10 @@ export default function App() {
   const [cropY, setCropY] = useState(0);
   const profileInput = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    setAuthError("");
+  }, [screen]);
+
   const refreshRealEvents = useCallback(async () => {
     if (!session) return;
     const [feed, membershipIds, hosted] = await Promise.all([
@@ -181,7 +184,7 @@ export default function App() {
     if (sessionLoading) return;
     if (!session) {
       setProfile(null);
-      if (!["welcome", "verify", "login"].includes(screen)) setScreen("welcome");
+      if (!["verify", "login"].includes(screen)) setScreen("login");
       return;
     }
 
@@ -327,7 +330,7 @@ export default function App() {
       setCodeSent(false);
       setVerificationCode("");
       setLoginPassword("");
-      setScreen("welcome");
+      setScreen("login");
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Could not sign out.");
     }
@@ -699,11 +702,7 @@ export default function App() {
     );
   }
 
-  if (!session && !["verify", "login"].includes(screen)) {
-    return <WelcomeScreen setScreen={setScreen} />;
-  }
-
-  if (!session && screen === "login") {
+  if (!session && screen !== "verify") {
     return (
       <LoginScreen
         email={schoolEmail}
