@@ -81,10 +81,10 @@ export function LoginScreen(props: LoginScreenProps) {
         </div>
         <span className="step-label">WELCOME BACK</span>
         <h1>Sign in to Kinlii</h1>
-        <p>Use the password you created after verifying your student email.</p>
+        <p>Use the password you created after verifying your email.</p>
 
         <label className="edu-input">
-          <span>University email</span>
+          <span>Email address</span>
           <div>
             <Icon name="user" size={18} />
             <input
@@ -92,7 +92,7 @@ export function LoginScreen(props: LoginScreenProps) {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="name@university.edu"
+              placeholder="you@example.com"
             />
           </div>
         </label>
@@ -149,22 +149,71 @@ type ForgotPasswordScreenProps = {
   setScreen: SetScreen;
 };
 
-export function ForgotPasswordScreen({ email, error, loading, sent, onSend, setEmail, setScreen }: ForgotPasswordScreenProps) {
+export function ForgotPasswordScreen({
+  email,
+  error,
+  loading,
+  sent,
+  onSend,
+  setEmail,
+  setScreen,
+}: ForgotPasswordScreenProps) {
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(email);
   return (
     <div className="phone-shell onboarding verify-screen">
-      <header className="flow-header"><button onClick={() => setScreen("login")}><Icon name="arrow" /></button><Logo /><span>Reset</span></header>
+      <header className="flow-header">
+        <button onClick={() => setScreen("login")}>
+          <Icon name="arrow" />
+        </button>
+        <Logo />
+        <span>Reset</span>
+      </header>
       <main className="verification-content login-content">
-        <div className="verification-mark profile-mark"><Icon name="check" size={31} /></div>
+        <div className="verification-mark profile-mark">
+          <Icon name="check" size={31} />
+        </div>
         <span className="step-label">ACCOUNT RECOVERY</span>
         <h1>{sent ? "Check your inbox" : "Reset your password"}</h1>
-        <p>{sent ? `We sent a secure reset link to ${email}.` : "Enter the email address connected to your Kinlii account."}</p>
-        {!sent && <label className="edu-input"><span>Email</span><div><Icon name="user" size={18} /><input autoComplete="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></div></label>}
-        {error && <p className="auth-error" role="alert">{error}</p>}
+        <p>
+          {sent
+            ? `We sent a secure reset link to ${email}.`
+            : "Enter the email address connected to your Kinlii account."}
+        </p>
+        {!sent && (
+          <label className="edu-input">
+            <span>Email</span>
+            <div>
+              <Icon name="user" size={18} />
+              <input
+                autoComplete="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </div>
+          </label>
+        )}
+        {error && (
+          <p className="auth-error" role="alert">
+            {error}
+          </p>
+        )}
       </main>
       <div className="bottom-action">
-        {!sent && <button className="primary-button" disabled={loading || !validEmail} onClick={() => void onSend()}>{loading ? "Sending…" : "Send reset link"}</button>}
-        {sent && <button className="create-account-link" onClick={() => setScreen("login")}>Back to sign in</button>}
+        {!sent && (
+          <button
+            className="primary-button"
+            disabled={loading || !validEmail}
+            onClick={() => void onSend()}
+          >
+            {loading ? "Sending…" : "Send reset link"}
+          </button>
+        )}
+        {sent && (
+          <button className="create-account-link" onClick={() => setScreen("login")}>
+            Back to sign in
+          </button>
+        )}
       </div>
     </div>
   );
@@ -285,7 +334,7 @@ export function VerificationScreen(props: VerificationScreenProps) {
     setVerificationCode,
     verificationCode,
   } = props;
-  const validEmail = /^[^\s@]+@[^\s@]+\.edu$/i.test(schoolEmail);
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(schoolEmail);
   return (
     <div className="phone-shell onboarding verify-screen">
       <header className="flow-header">
@@ -302,28 +351,28 @@ export function VerificationScreen(props: VerificationScreenProps) {
           <span className="school-dot two" />
         </div>
         <span className="step-label">CREATE YOUR ACCOUNT</span>
-        <h1>{codeSent ? "Check your inbox" : "Verify your student email"}</h1>
+        <h1>{codeSent ? "Check your inbox" : "Verify your email"}</h1>
         <p>
           {codeSent
             ? `We sent a secure sign-in email to ${schoolEmail}.`
-            : "Kin is a trusted student community. Use your university email to keep every group verified and accountable."}
+            : "During testing, you can use any valid email address. University-only signup will return before launch."}
         </p>
         {!codeSent ? (
           <>
             <label className="edu-input">
-              <span>University email</span>
+              <span>Email address</span>
               <div>
                 <Icon name="user" size={18} />
                 <input
                   type="email"
                   value={schoolEmail}
                   onChange={(event) => setSchoolEmail(event.target.value)}
-                  placeholder="name@university.edu"
+                  placeholder="you@example.com"
                 />
               </div>
             </label>
             {schoolEmail && !validEmail && (
-              <p className="field-error">Please enter a valid email ending in .edu</p>
+              <p className="field-error">Please enter a valid email address</p>
             )}
             <section className="verification-benefits">
               <div>
