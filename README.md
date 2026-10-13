@@ -46,6 +46,8 @@ src/
 └── styles.css                   Existing visual design and responsive rules
 ```
 
+Database infrastructure lives in `supabase/migrations/`. Follow [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md) before enabling real authentication or data.
+
 ## How the prototype works
 
 - `main.jsx` mounts one `App` component.

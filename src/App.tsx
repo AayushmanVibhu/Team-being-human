@@ -36,6 +36,17 @@ export type LeaveRecord = {
   leftAt: string;
 };
 
+type AssistantAction = {
+  type: string;
+  gatheringIds?: number[];
+  draft?: {
+    title?: string;
+    category?: string;
+    day?: string;
+    location?: string;
+  };
+};
+
 export default function App() {
   const [screen, setScreen] = usePersistentState("kinlii:screen", "welcome" as Screen);
   const [selectedInterests, setSelectedInterests] = usePersistentState("kinlii:interests", [
@@ -143,23 +154,23 @@ export default function App() {
         })),
       });
       setChatReply(response.text);
-      const action = response.actions?.[0];
+      const action = response.actions?.[0] as AssistantAction | undefined;
       if (action?.type === "calendar_summary") setTab("calendar");
-      if (action?.type === "gathering_recommendations" && action.gatheringIds?.[0])
-        setEvent(events.find((item) => item.id === action.gatheringIds[0]) || null);
+      const recommendedEventId = action?.gatheringIds?.[0];
+      if (action?.type === "gathering_recommendations" && recommendedEventId)
+        setEvent(events.find((item) => item.id === recommendedEventId) || null);
       if (
         (action?.type === "gathering_draft" || action?.type === "create_gathering") &&
         action.draft
       ) {
+        const draft = action.draft;
         setCreateForm((form) => ({
           ...form,
-          title: action.draft.title || "",
-          category: action.draft.category?.includes("Sports")
-            ? "Sports"
-            : action.draft.category || "",
-          date: action.draft.day === "Date not selected" ? "" : action.draft.day || "",
+          title: draft.title || "",
+          category: draft.category?.includes("Sports") ? "Sports" : draft.category || "",
+          date: draft.day === "Date not selected" ? "" : draft.day || "",
           time: "",
-          location: action.draft.location || "",
+          location: draft.location || "",
         }));
         setCreateOpen(true);
       }
