@@ -15,6 +15,7 @@ export type EventFeedItem = {
   attendeeCount: number;
   spotsRemaining: number;
   tags: string[];
+  imageUrl: string | null;
 };
 
 type EventFeedRow = {
@@ -32,6 +33,7 @@ type EventFeedRow = {
   attendee_count: number;
   spots_remaining: number;
   tags: string[] | null;
+  image_url: string | null;
 };
 
 function mapFeedRow(row: EventFeedRow): EventFeedItem {
@@ -50,6 +52,7 @@ function mapFeedRow(row: EventFeedRow): EventFeedItem {
     attendeeCount: row.attendee_count,
     spotsRemaining: row.spots_remaining,
     tags: row.tags ?? [],
+    imageUrl: row.image_url,
   };
 }
 
@@ -57,6 +60,13 @@ export async function listAvailableEvents(): Promise<EventFeedItem[]> {
   const client = requireSupabase();
   const { data, error } = await client.from("event_feed").select("*").order("starts_at");
 
+  if (error) throw error;
+  return ((data ?? []) as EventFeedRow[]).map(mapFeedRow);
+}
+
+export async function listEventCatalog(): Promise<EventFeedItem[]> {
+  const client = requireSupabase();
+  const { data, error } = await client.from("event_catalog").select("*").order("starts_at");
   if (error) throw error;
   return ((data ?? []) as EventFeedRow[]).map(mapFeedRow);
 }
@@ -105,12 +115,73 @@ export async function listMyJoinedEventIds(): Promise<string[]> {
   return (data ?? []).map((membership) => membership.event_id as string);
 }
 
+export async function listMySavedEventIds(): Promise<string[]> {
+  const client = requireSupabase();
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+  if (!user) return [];
+  const { data, error } = await client
+    .from("saved_events")
+    .select("event_id")
+    .eq("user_id", user.id);
+  if (error) throw error;
+  return (data ?? []).map((item) => item.event_id as string);
+}
+
+export async function updateEvent(eventId: string, input: CreateEventInput): Promise<void> {
+  const { error } = await requireSupabase()
+    .from("events")
+    .update({
+      title: input.title.trim(),
+      description: input.description?.trim() || "",
+      category: input.category,
+      starts_at: input.startsAt,
+      location_name: input.locationName.trim(),
+      capacity: input.capacity,
+      tags: [input.category],
+    })
+    .eq("id", eventId);
+  if (error) throw error;
+}
+
+export async function cancelEvent(eventId: string): Promise<void> {
+  const { error } = await requireSupabase()
+    .from("events")
+    .update({ status: "cancelled" })
+    .eq("id", eventId);
+  if (error) throw error;
+}
+
+export async function uploadEventImage(
+  userId: string,
+  eventId: string,
+  image: File,
+): Promise<string> {
+  const client = requireSupabase();
+  const extension = image.name.split(".").pop()?.toLowerCase() || "jpg";
+  const objectPath = `${userId}/${eventId}.${extension}`;
+  const { error: uploadError } = await client.storage
+    .from("event-images")
+    .upload(objectPath, image, {
+      contentType: image.type,
+      cacheControl: "3600",
+      upsert: true,
+    });
+  if (uploadError) throw uploadError;
+  const { data } = client.storage.from("event-images").getPublicUrl(objectPath);
+  const imageUrl = `${data.publicUrl}?v=${Date.now()}`;
+  const { error } = await client.from("events").update({ image_url: imageUrl }).eq("id", eventId);
+  if (error) throw error;
+  return imageUrl;
+}
+
 export async function listHostedEvents(hostId: string, hostName: string): Promise<EventFeedItem[]> {
   const client = requireSupabase();
   const { data: hostedEvents, error } = await client
     .from("events")
     .select(
-      "id, host_id, title, description, category, starts_at, location_name, latitude, longitude, capacity, tags",
+      "id, host_id, title, description, category, starts_at, location_name, latitude, longitude, capacity, tags, image_url",
     )
     .eq("host_id", hostId)
     .eq("status", "active")
@@ -150,6 +221,7 @@ export async function listHostedEvents(hostId: string, hostName: string): Promis
       attendeeCount,
       spotsRemaining: (event.capacity as number) - attendeeCount,
       tags: (event.tags as string[] | null) ?? [],
+      imageUrl: event.image_url as string | null,
     };
   });
 }

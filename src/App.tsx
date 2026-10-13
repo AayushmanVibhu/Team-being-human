@@ -10,6 +10,7 @@ import {
 } from "./screens/main/MainTabScreens";
 import {
   InterestSelectionScreen,
+  ForgotPasswordScreen,
   LoginScreen,
   PasswordSetupScreen,
   PersonalityQuizScreen,
@@ -17,11 +18,12 @@ import {
   ProfileSetupScreen,
   VerificationScreen,
 } from "./screens/onboarding/OnboardingScreens";
-import { events, questions, type EventId, type KinliiEvent } from "./data/kinliiData";
+import { questions, type EventId, type KinliiEvent } from "./data/kinliiData";
 import { usePersistentState } from "./hooks/usePersistentState";
 import { useAuthSession } from "./hooks/useAuthSession";
 import {
   sendSignInCode,
+  sendPasswordReset,
   setAccountPassword,
   signInWithPassword,
   signOut,
@@ -30,35 +32,37 @@ import {
 import { hasSupabaseConfig, supabase } from "./lib/supabase";
 import {
   completeOnboarding,
+  getProfileInterests,
   getProfile,
   markPasswordSet,
   uploadProfileAvatar,
   updateProfile,
+  updateProfilePreferences,
   type UserProfile,
 } from "./repositories/profileRepository";
 import { communityAssistant } from "./services/communityAssistant";
 import { findSimilarEvents } from "./services/duplicateEventService";
 import {
   createEvent,
+  cancelEvent,
   joinEvent as joinDatabaseEvent,
   leaveEvent as leaveDatabaseEvent,
   listAvailableEvents,
-  listHostedEvents,
+  listEventCatalog,
   listMyJoinedEventIds,
+  listMySavedEventIds,
+  saveEvent,
+  unsaveEvent,
+  uploadEventImage,
+  updateEvent,
 } from "./repositories/eventRepository";
 import { resolveEventStart, toKinliiEvent } from "./services/eventAdapter";
 
 import type { Screen, Tab } from "./app/types";
 
-export type LeaveRecord = {
-  eventId: EventId;
-  reason: string;
-  leftAt: string;
-};
-
 type AssistantAction = {
   type: string;
-  gatheringIds?: number[];
+  gatheringIds?: string[];
   draft?: {
     title?: string;
     category?: string;
@@ -68,23 +72,15 @@ type AssistantAction = {
 };
 
 export default function App() {
-  const { session, loading: sessionLoading } = useAuthSession();
+  const { session, loading: sessionLoading, passwordRecovery } = useAuthSession();
   const [screen, setScreen] = usePersistentState("kinlii:screen", "login" as Screen);
-  const [selectedInterests, setSelectedInterests] = usePersistentState("kinlii:interests", [
-    "Outdoors",
-    "Sports",
-  ] as string[]);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
   const [quizStep, setQuizStep] = useState(0);
-  const [answers, setAnswers] = usePersistentState("kinlii:personality-answers", [] as number[]);
+  const [answers, setAnswers] = useState<number[]>([]);
   const [tab, setTab] = useState<Tab>("discover");
   const [event, setEvent] = useState<KinliiEvent | null>(null);
-  const [joined, setJoined] = usePersistentState("kinlii:joined", [] as EventId[]);
-  const [remainingSpots, setRemainingSpots] = usePersistentState(
-    "kinlii:remaining-spots",
-    Object.fromEntries(events.map((item) => [item.id, item.spots])) as Record<string, number>,
-  );
-  const [, setLeaveRecords] = usePersistentState("kinlii:leave-records", [] as LeaveRecord[]);
-  const [saved, setSaved] = usePersistentState("kinlii:saved", [] as EventId[]);
+  const [joined, setJoined] = useState<EventId[]>([]);
+  const [saved, setSaved] = useState<EventId[]>([]);
   const [alertsEnabled, setAlertsEnabled] = usePersistentState("kinlii:nearby-alerts", true);
   const [schoolEmail, setSchoolEmail] = useState("");
   const [codeSent, setCodeSent] = useState(false);
@@ -94,17 +90,13 @@ export default function App() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [resetEmailSent, setResetEmailSent] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [universityName, setUniversityName] = useState("");
   const [bio, setBio] = useState("");
-  const [calendarSynced, setCalendarSynced] = usePersistentState(
-    "kinlii:calendar-connected",
-    false,
-  );
-  const [privateCalendar, setPrivateCalendar] = usePersistentState("kinlii:calendar-private", true);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const [chatReply, setChatReply] = useState(
@@ -116,13 +108,11 @@ export default function App() {
   const [hearingSupport, setHearingSupport] = usePersistentState("kinlii:hearing-support", false);
   const [visualSupport, setVisualSupport] = usePersistentState("kinlii:visual-support", false);
   const [reading, setReading] = useState(false);
-  const [carpoolJoined, setCarpoolJoined] = usePersistentState(
-    "kinlii:carpool-requests",
-    [] as EventId[],
-  );
   const [createOpen, setCreateOpen] = useState(false);
   const [realEvents, setRealEvents] = useState<KinliiEvent[]>([]);
   const [hostedEvents, setHostedEvents] = useState<KinliiEvent[]>([]);
+  const [joinedEvents, setJoinedEvents] = useState<KinliiEvent[]>([]);
+  const [savedEvents, setSavedEvents] = useState<KinliiEvent[]>([]);
   const [eventActionLoading, setEventActionLoading] = useState(false);
   const [eventError, setEventError] = useState("");
   const [publishingEvent, setPublishingEvent] = useState(false);
@@ -133,7 +123,10 @@ export default function App() {
     time: "",
     location: "",
     spots: "4",
+    description: "",
   });
+  const [eventImage, setEventImage] = useState<File | null>(null);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [profileImage, setProfileImage] = useState("");
   const [pendingProfileImage, setPendingProfileImage] = useState("");
@@ -148,17 +141,26 @@ export default function App() {
     setAuthError("");
   }, [screen]);
 
+  useEffect(() => {
+    if (passwordRecovery) setScreen("reset-password");
+  }, [passwordRecovery, setScreen]);
+
   const refreshRealEvents = useCallback(async () => {
     if (!session) return;
-    const [feed, membershipIds, hosted] = await Promise.all([
+    const [feed, catalog, membershipIds, savedIds] = await Promise.all([
       listAvailableEvents(),
+      listEventCatalog(),
       listMyJoinedEventIds(),
-      listHostedEvents(session.user.id, profile?.displayName || displayName || "Kinlii host"),
+      listMySavedEventIds(),
     ]);
     setRealEvents(feed.map(toKinliiEvent));
-    setHostedEvents(hosted.map(toKinliiEvent));
-    setJoined((current) => [...current.filter((id) => typeof id === "number"), ...membershipIds]);
-  }, [displayName, profile?.displayName, session, setJoined]);
+    const mappedCatalog = catalog.map(toKinliiEvent);
+    setHostedEvents(mappedCatalog.filter((item) => item.hostId === session.user.id));
+    setJoinedEvents(mappedCatalog.filter((item) => membershipIds.includes(item.id)));
+    setSavedEvents(mappedCatalog.filter((item) => savedIds.includes(item.id)));
+    setJoined(membershipIds);
+    setSaved(savedIds);
+  }, [session]);
 
   useEffect(() => {
     if (!session || !profile?.onboardingCompleted) return;
@@ -184,6 +186,24 @@ export default function App() {
   }, [profile?.onboardingCompleted, refreshRealEvents, session]);
 
   useEffect(() => {
+    if (!session || !profile?.onboardingCompleted) return;
+    const preferences = { largeText, highContrast, hearingSupport, visualSupport };
+    const timer = window.setTimeout(() => {
+      void updateProfilePreferences(session.user.id, preferences).catch((error) =>
+        setProfileError(error instanceof Error ? error.message : "Preferences could not be saved."),
+      );
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [
+    hearingSupport,
+    highContrast,
+    largeText,
+    profile?.onboardingCompleted,
+    session,
+    visualSupport,
+  ]);
+
+  useEffect(() => {
     if (sessionLoading) return;
     if (!session) {
       setProfile(null);
@@ -195,16 +215,23 @@ export default function App() {
     setProfileLoading(true);
     setProfileError("");
 
-    void getProfile(session.user.id)
-      .then((nextProfile) => {
+    void Promise.all([getProfile(session.user.id), getProfileInterests(session.user.id)])
+      .then(([nextProfile, interestNames]) => {
         if (!active) return;
         setProfile(nextProfile);
         setDisplayName(nextProfile.displayName);
         setUniversityName(nextProfile.universityName);
         setBio(nextProfile.bio);
         setProfileImage(nextProfile.avatarUrl ?? "");
+        setSelectedInterests(interestNames);
+        setLargeText(Boolean(nextProfile.accessibilityPreferences.largeText));
+        setHighContrast(Boolean(nextProfile.accessibilityPreferences.highContrast));
+        setHearingSupport(Boolean(nextProfile.accessibilityPreferences.hearingSupport));
+        setVisualSupport(Boolean(nextProfile.accessibilityPreferences.visualSupport));
         setScreen(
-          !nextProfile.passwordSet
+          passwordRecovery
+            ? "reset-password"
+            : !nextProfile.passwordSet
             ? "set-password"
             : nextProfile.onboardingCompleted
               ? "app"
@@ -226,7 +253,7 @@ export default function App() {
     };
     // Profile routing should run only when the authenticated account changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.user.id, sessionLoading]);
+  }, [passwordRecovery, session?.user.id, sessionLoading]);
 
   const requestSignInCode = async () => {
     setAuthLoading(true);
@@ -291,6 +318,19 @@ export default function App() {
     }
   };
 
+  const requestPasswordReset = async () => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      await sendPasswordReset(schoolEmail);
+      setResetEmailSent(true);
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "The reset email could not be sent.");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const saveInitialProfile = async () => {
     if (!session) return;
     setProfileLoading(true);
@@ -310,12 +350,32 @@ export default function App() {
     }
   };
 
+  const saveEditedProfile = async (values: {
+    displayName: string;
+    universityName: string;
+    bio: string;
+  }) => {
+    if (!session) return;
+    setProfileError("");
+    try {
+      const nextProfile = await updateProfile(session.user.id, values);
+      setProfile(nextProfile);
+      setDisplayName(nextProfile.displayName);
+      setUniversityName(nextProfile.universityName);
+      setBio(nextProfile.bio);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Your profile could not be updated.";
+      setProfileError(message);
+      throw error;
+    }
+  };
+
   const finishOnboarding = async () => {
     if (!session) return;
     setProfileLoading(true);
     setProfileError("");
     try {
-      await completeOnboarding(session.user.id, selectedInterests);
+      await completeOnboarding(session.user.id, selectedInterests, personality);
       setProfile((current) => (current ? { ...current, onboardingCompleted: true } : current));
       setScreen("app");
     } catch (error) {
@@ -375,7 +435,7 @@ export default function App() {
     try {
       const response = await communityAssistant.respond({
         history: [{ role: "user", content: message }],
-        gatherings: events.map((item) => ({
+        gatherings: realEvents.map((item) => ({
           ...item,
           category: item.type,
           day: item.time,
@@ -385,8 +445,8 @@ export default function App() {
               ? "tomorrow"
               : "weekend",
           period: item.time.includes("AM") ? "morning" : "evening",
-          attendees: 4 - (remainingSpots[item.id] ?? item.spots),
-          capacity: 4,
+          attendees: (item.capacity ?? 0) - item.spots,
+          capacity: item.capacity ?? 0,
           newcomers: true,
           instantJoin: true,
         })),
@@ -396,7 +456,7 @@ export default function App() {
       if (action?.type === "calendar_summary") setTab("calendar");
       const recommendedEventId = action?.gatheringIds?.[0];
       if (action?.type === "gathering_recommendations" && recommendedEventId)
-        setEvent(events.find((item) => item.id === recommendedEventId) || null);
+        setEvent(realEvents.find((item) => item.id === recommendedEventId) || null);
       if (
         (action?.type === "gathering_draft" || action?.type === "create_gathering") &&
         action.draft
@@ -482,7 +542,6 @@ export default function App() {
   const similarEvent = useMemo(() => {
     if (!createForm.category || !createForm.date || !createForm.time || !createForm.location)
       return null;
-    const schedules: Record<EventId, string> = { 1: "Today", 2: "Tomorrow", 3: "Friday" };
     return (
       findSimilarEvents({
         title: createForm.title,
@@ -491,31 +550,21 @@ export default function App() {
         latitude: 33.424,
         longitude: -111.94,
         radiusMiles: 3,
-        existingEvents: events.map((item) => ({
+        existingEvents: realEvents.map((item) => ({
           ...item,
           category: item.type,
-          day: schedules[item.id],
-          startsAt: schedules[item.id],
+          day: item.startsAt,
+          startsAt: item.startsAt,
           latitude: 33.424,
           longitude: -111.94,
-          attendees: 4 - item.spots,
-          capacity: 4,
+          attendees: (item.capacity ?? 0) - item.spots,
+          capacity: item.capacity ?? 0,
         })),
       }) || null
     );
-  }, [createForm]);
+  }, [createForm, realEvents]);
 
-  const availableEvents = useMemo(
-    () =>
-      [
-        ...realEvents,
-        ...events.map((item) => ({
-          ...item,
-          spots: remainingSpots[item.id] ?? item.spots,
-        })),
-      ].filter((item) => item.spots > 0),
-    [realEvents, remainingSpots],
-  );
+  const availableEvents = useMemo(() => realEvents.filter((item) => item.spots > 0), [realEvents]);
 
   const visibleEvents = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -531,80 +580,57 @@ export default function App() {
     if (joined.includes(eventId)) return;
     setEventError("");
 
-    if (typeof eventId === "string") {
-      setEventActionLoading(true);
-      try {
-        const result = await joinDatabaseEvent(eventId);
-        setJoined((items) => [...items, eventId]);
-        setEvent((current) =>
-          current?.id === eventId
-            ? {
-                ...current,
-                spots: result.spots_remaining,
-                attendeeCount: result.attendee_count,
-              }
-            : current,
-        );
-        await refreshRealEvents();
-      } catch (error) {
-        setEventError(error instanceof Error ? error.message : "You could not join this event.");
-      } finally {
-        setEventActionLoading(false);
-      }
-      return;
+    setEventActionLoading(true);
+    try {
+      const result = await joinDatabaseEvent(eventId);
+      setJoined((items) => [...items, eventId]);
+      setEvent((current) =>
+        current?.id === eventId
+          ? { ...current, spots: result.spots_remaining, attendeeCount: result.attendee_count }
+          : current,
+      );
+      await refreshRealEvents();
+    } catch (error) {
+      setEventError(error instanceof Error ? error.message : "You could not join this event.");
+    } finally {
+      setEventActionLoading(false);
     }
-
-    const sourceEvent = events.find((item) => item.id === eventId);
-    const spots = remainingSpots[eventId] ?? sourceEvent?.spots ?? 0;
-    if (spots <= 0) return;
-
-    setJoined((items) => [...items, eventId]);
-    setRemainingSpots((current) => ({
-      ...current,
-      [eventId]: Math.max(0, spots - 1),
-    }));
   };
 
   const leaveEvent = async (eventId: EventId, reason: string) => {
     if (!joined.includes(eventId) || !reason.trim()) return;
     setEventError("");
 
-    if (typeof eventId === "string") {
-      setEventActionLoading(true);
-      try {
-        const result = await leaveDatabaseEvent(eventId, reason);
-        setJoined((items) => items.filter((id) => id !== eventId));
-        setEvent((current) =>
-          current?.id === eventId
-            ? {
-                ...current,
-                spots: result.spots_remaining,
-                attendeeCount: result.attendee_count,
-              }
-            : current,
-        );
-        await refreshRealEvents();
-      } catch (error) {
-        setEventError(error instanceof Error ? error.message : "You could not leave this event.");
-        throw error;
-      } finally {
-        setEventActionLoading(false);
-      }
-      return;
+    setEventActionLoading(true);
+    try {
+      const result = await leaveDatabaseEvent(eventId, reason);
+      setJoined((items) => items.filter((id) => id !== eventId));
+      setEvent((current) =>
+        current?.id === eventId
+          ? { ...current, spots: result.spots_remaining, attendeeCount: result.attendee_count }
+          : current,
+      );
+      await refreshRealEvents();
+    } catch (error) {
+      setEventError(error instanceof Error ? error.message : "You could not leave this event.");
+      throw error;
+    } finally {
+      setEventActionLoading(false);
     }
+  };
 
-    const sourceEvent = events.find((item) => item.id === eventId);
-    const initialSpots = sourceEvent?.spots ?? 0;
-
-    setJoined((items) => items.filter((id) => id !== eventId));
-    setRemainingSpots((current) => ({
-      ...current,
-      [eventId]: Math.min(initialSpots, (current[eventId] ?? initialSpots) + 1),
-    }));
-    setLeaveRecords((records) => [
-      ...records,
-      { eventId, reason: reason.trim(), leftAt: new Date().toISOString() },
-    ]);
+  const toggleSavedEvent = async (eventId: EventId) => {
+    setEventActionLoading(true);
+    setEventError("");
+    try {
+      if (saved.includes(eventId)) await unsaveEvent(eventId);
+      else await saveEvent(eventId);
+      await refreshRealEvents();
+    } catch (error) {
+      setEventError(error instanceof Error ? error.message : "This event could not be saved.");
+    } finally {
+      setEventActionLoading(false);
+    }
   };
 
   const uploadProfileImage = (file?: File) => {
@@ -691,25 +717,69 @@ export default function App() {
     setPublishingEvent(true);
     setEventError("");
     try {
-      const eventId = await createEvent({
+      const input = {
         title: createForm.title,
         category: createForm.category,
         startsAt: resolveEventStart(createForm.date, createForm.time),
         locationName: createForm.location,
         capacity: Number(createForm.spots),
-      });
+        description: createForm.description,
+      };
+      const eventId = editingEventId ?? (await createEvent(input));
+      if (editingEventId) await updateEvent(editingEventId, input);
+      if (eventImage) await uploadEventImage(session.user.id, eventId, eventImage);
       await refreshRealEvents();
       const createdEvent = (await listAvailableEvents())
         .map(toKinliiEvent)
         .find((item) => item.id === eventId);
       setCreateOpen(false);
-      setCreateForm({ title: "", category: "", date: "", time: "", location: "", spots: "4" });
+      setCreateForm({
+        title: "",
+        category: "",
+        date: "",
+        time: "",
+        location: "",
+        spots: "4",
+        description: "",
+      });
+      setEventImage(null);
+      setEditingEventId(null);
       setTab("discover");
       if (createdEvent) setEvent(createdEvent);
     } catch (error) {
       setEventError(error instanceof Error ? error.message : "The event could not be published.");
     } finally {
       setPublishingEvent(false);
+    }
+  };
+
+  const beginEditEvent = (item: KinliiEvent) => {
+    const starts = new Date(item.startsAt);
+    const localDate = new Date(starts.getTime() - starts.getTimezoneOffset() * 60_000);
+    setCreateForm({
+      title: item.title,
+      category: item.type,
+      date: localDate.toISOString().slice(0, 10),
+      time: localDate.toISOString().slice(11, 16),
+      location: item.place,
+      spots: String(item.capacity ?? 4),
+      description: item.description ?? "",
+    });
+    setEditingEventId(item.id);
+    setEvent(null);
+    setCreateOpen(true);
+  };
+
+  const removeHostedEvent = async (eventId: string) => {
+    setEventActionLoading(true);
+    try {
+      await cancelEvent(eventId);
+      setEvent(null);
+      await refreshRealEvents();
+    } catch (error) {
+      setEventError(error instanceof Error ? error.message : "The event could not be cancelled.");
+    } finally {
+      setEventActionLoading(false);
     }
   };
 
@@ -726,6 +796,10 @@ export default function App() {
     );
   }
 
+  if (!session && screen === "forgot-password") {
+    return <ForgotPasswordScreen email={schoolEmail} error={authError} loading={authLoading} sent={resetEmailSent} onSend={requestPasswordReset} setEmail={setSchoolEmail} setScreen={setScreen} />;
+  }
+
   if (!session && screen !== "verify") {
     return (
       <LoginScreen
@@ -739,6 +813,10 @@ export default function App() {
         setScreen={setScreen}
       />
     );
+  }
+
+  if (session && screen === "reset-password") {
+    return <PasswordSetupScreen confirmPassword={confirmPassword} error={authError} loading={authLoading} onSave={saveAccountPassword} password={newPassword} setConfirmPassword={setConfirmPassword} setPassword={setNewPassword} />;
   }
 
   if (!session && screen === "verify") {
@@ -836,16 +914,11 @@ export default function App() {
   }
 
   if (event) {
-    const selectedEvent =
-      typeof event.id === "number"
-        ? { ...event, spots: remainingSpots[event.id] ?? event.spots }
-        : event;
     return (
       <EventDetailsScreen
-        event={selectedEvent}
+        event={event}
         joined={joined}
         saved={saved}
-        carpoolJoined={carpoolJoined}
         largeText={largeText}
         highContrast={highContrast}
         reading={reading}
@@ -855,8 +928,10 @@ export default function App() {
         onLeave={leaveEvent}
         actionError={eventError}
         actionLoading={eventActionLoading}
-        setSaved={setSaved}
-        setCarpoolJoined={setCarpoolJoined}
+        onToggleSaved={toggleSavedEvent}
+        isHost={event.hostId === session?.user.id}
+        onEdit={beginEditEvent}
+        onCancel={removeHostedEvent}
       />
     );
   }
@@ -872,7 +947,8 @@ export default function App() {
           </div>
           <div>
             <span className="app-location">
-              <i /> TEMPE CAMPUS <Icon name="chevron" size={13} />
+              <i /> {(profile?.universityName || "YOUR CAMPUS").toUpperCase()}{" "}
+              <Icon name="chevron" size={13} />
             </span>
             <h1>{pageTitle}</h1>
           </div>
@@ -918,36 +994,33 @@ export default function App() {
         )}
         {tab === "calendar" && (
           <CalendarScreen
-            calendarSynced={calendarSynced}
-            setCalendarSynced={setCalendarSynced}
-            privateCalendar={privateCalendar}
-            setPrivateCalendar={setPrivateCalendar}
             hostedPlans={hostedEvents}
+            joinedPlans={joinedEvents}
+            savedPlans={savedEvents}
             setEvent={setEvent}
           />
         )}
         {tab === "alerts" && (
-          <AlertsScreen
-            alertsEnabled={alertsEnabled}
-            setAlertsEnabled={setAlertsEnabled}
-            setEvent={setEvent}
-          />
+          <AlertsScreen alertsEnabled={alertsEnabled} setAlertsEnabled={setAlertsEnabled} />
         )}
         {tab === "profile" && (
           <ProfileScreen
             accountEmail={session?.user.email ?? ""}
             displayName={profile?.displayName || displayName}
             universityName={profile?.universityName || universityName}
+            bio={profile?.bio || bio}
             profileImage={profileImage}
             profileInput={profileInput}
             joinedCount={joined.length}
             hostedCount={hostedEvents.length}
+            savedCount={saved.length}
             personality={personality}
             selectedInterests={selectedInterests}
             setQuizStep={setQuizStep}
             setScreen={setScreen}
             setAccessibilityOpen={setAccessibilityOpen}
             onSignOut={handleSignOut}
+            onUpdateProfile={saveEditedProfile}
           />
         )}
       </main>
@@ -1186,11 +1259,18 @@ export default function App() {
                 <Icon name="calendar" size={20} />
               </span>
               <div>
-                <strong>Host an activity</strong>
+                <strong>{editingEventId ? "Edit activity" : "Host an activity"}</strong>
                 <small>Bring a small group together</small>
               </div>
             </div>
-            <button onClick={() => setCreateOpen(false)}>Cancel</button>
+            <button
+              onClick={() => {
+                setCreateOpen(false);
+                setEditingEventId(null);
+              }}
+            >
+              Cancel
+            </button>
           </header>
           <div className="create-body">
             <div className="create-intro">
@@ -1207,7 +1287,7 @@ export default function App() {
               <input
                 value={createForm.title}
                 onChange={(event) => setCreateForm({ ...createForm, title: event.target.value })}
-                placeholder="e.g. Sunset badminton"
+                placeholder="e.g. Weekend board games"
               />
             </label>
             <div className="create-grid">
@@ -1241,17 +1321,11 @@ export default function App() {
               </label>
               <label className="create-field">
                 <span>Day</span>
-                <select
+                <input
+                  type="date"
                   value={createForm.date}
                   onChange={(event) => setCreateForm({ ...createForm, date: event.target.value })}
-                >
-                  <option value="">Select day</option>
-                  <option>Today</option>
-                  <option>Tomorrow</option>
-                  <option>Friday</option>
-                  <option>Saturday</option>
-                  <option>Sunday</option>
-                </select>
+                />
               </label>
               <label className="create-field">
                 <span>Time</span>
@@ -1274,6 +1348,26 @@ export default function App() {
                   placeholder="Campus building or public venue"
                 />
               </div>
+            </label>
+            <label className="create-field">
+              <span>Description</span>
+              <textarea
+                value={createForm.description}
+                onChange={(event) =>
+                  setCreateForm({ ...createForm, description: event.target.value })
+                }
+                placeholder="Tell students what to expect and what to bring"
+                rows={4}
+              />
+            </label>
+            <label className="create-field">
+              <span>Event photo (optional)</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => setEventImage(event.target.files?.[0] ?? null)}
+              />
+              {eventImage && <small>{eventImage.name}</small>}
             </label>
             {similarEvent && (
               <section className="duplicate-warning">
@@ -1322,7 +1416,9 @@ export default function App() {
                 ? "Publishing…"
                 : similarEvent
                   ? "Similar activity found"
-                  : "Publish activity"}{" "}
+                  : editingEventId
+                    ? "Save changes"
+                    : "Publish activity"}{" "}
               {!publishingEvent && <Icon name="chevron" size={17} />}
             </button>
             {eventError && (

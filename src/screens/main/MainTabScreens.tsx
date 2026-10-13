@@ -1,8 +1,8 @@
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import { useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 
 import type { Personality, Screen, Tab } from "../../app/types";
 import { Icon } from "../../components/ui/Icon";
-import { events, type KinliiEvent } from "../../data/kinliiData";
+import type { KinliiEvent } from "../../data/kinliiData";
 
 type DiscoverScreenProps = {
   searchQuery: string;
@@ -19,8 +19,6 @@ export function DiscoverScreen({
   setEvent,
   setTab,
 }: DiscoverScreenProps) {
-  const nearbyHighlight = visibleEvents.find((event) => event.id === 1);
-
   return (
     <>
       <label className="search-bar">
@@ -31,28 +29,11 @@ export function DiscoverScreen({
           placeholder="Search activities or interests"
         />
       </label>
-      {nearbyHighlight && (
-        <section className="nearby-alert">
-          <span>
-            <Icon name="location" />
-          </span>
-          <div>
-            <small>HAPPENING NEARBY</small>
-            <strong>Badminton starts in 2 hours</strong>
-            <p>
-              0.4 miles away · {nearbyHighlight.spots} spot
-              {nearbyHighlight.spots === 1 ? "" : "s"} left
-            </p>
-          </div>
-          <Icon name="chevron" size={18} />
-        </section>
-      )}
       <div className="section-heading">
         <div>
           <h2>Picked for you</h2>
           <p>Based on your interests and personality</p>
         </div>
-        <button>See all</button>
       </div>
       <div className="event-scroll">
         {visibleEvents.map((item) => (
@@ -112,144 +93,64 @@ export function DiscoverScreen({
 }
 
 type CalendarScreenProps = {
-  calendarSynced: boolean;
-  setCalendarSynced: Dispatch<SetStateAction<boolean>>;
-  privateCalendar: boolean;
-  setPrivateCalendar: Dispatch<SetStateAction<boolean>>;
   hostedPlans: KinliiEvent[];
+  joinedPlans: KinliiEvent[];
+  savedPlans: KinliiEvent[];
   setEvent: Dispatch<SetStateAction<KinliiEvent | null>>;
 };
 
 export function CalendarScreen({
-  calendarSynced,
-  setCalendarSynced,
-  privateCalendar,
-  setPrivateCalendar,
   hostedPlans,
+  joinedPlans,
+  savedPlans,
   setEvent,
 }: CalendarScreenProps) {
   return (
     <>
-      <section className="calendar-sync-card">
-        <div className="google-calendar-mark">
-          <Icon name="calendar" size={21} />
-        </div>
-        <div>
-          <strong>{calendarSynced ? "Google Calendar connected" : "Sync Google Calendar"}</strong>
-          <p>
-            {calendarSynced
-              ? "Your Kin plans are syncing privately."
-              : "Keep your activities and classes together."}
-          </p>
-        </div>
-        <button
-          className={calendarSynced ? "connected" : ""}
-          onClick={() => setCalendarSynced(!calendarSynced)}
-        >
-          {calendarSynced ? <Icon name="check" size={16} /> : "Connect"}
-        </button>
-      </section>
-      <section className="privacy-mask">
-        <span>
-          <Icon name="check" size={17} />
-        </span>
-        <div>
-          <strong>Privacy mask</strong>
-          <p>
-            Kin events appear externally as “Busy — personal activity.” Locations, interests, and
-            attendees stay hidden.
-          </p>
-        </div>
-        <button
-          className={privateCalendar ? "on" : ""}
-          onClick={() => setPrivateCalendar(!privateCalendar)}
-        >
-          <i />
-        </button>
-      </section>
-      <div className="month-heading">
-        <button>
-          <Icon name="arrow" size={17} />
-        </button>
-        <h2>October 2026</h2>
-        <button>
-          <Icon name="chevron" size={17} />
-        </button>
-      </div>
-      <div className="calendar-week">
-        {[
-          ["MON", "14"],
-          ["TUE", "15"],
-          ["WED", "16"],
-          ["THU", "17"],
-          ["FRI", "18"],
-          ["SAT", "19"],
-          ["SUN", "20"],
-        ].map(([day, date]) => (
-          <button key={date} className={date === "17" ? "active" : ""}>
-            <span>{day}</span>
-            <strong>{date}</strong>
-            {date === "17" && <i />}
-          </button>
-        ))}
-      </div>
-      <div className="agenda-heading">
-        <h2>Thursday, October 17</h2>
-        <span>2 plans</span>
-      </div>
-      <div className="agenda-list">
-        <button onClick={() => setEvent(events[0])}>
-          <time>
-            5:30<small>PM</small>
-          </time>
-          <span className="agenda-line coral" />
-          <div>
-            <span>
-              <Icon name={events[0].activityIcon} size={15} /> {events[0].type}
-            </span>
-            <strong>{events[0].title}</strong>
-            <p>
-              {events[0].place} · {events[0].distance}
-            </p>
+      {[
+        ["Joined", joinedPlans],
+        ["Hosted", hostedPlans],
+        ["Saved", savedPlans],
+      ].map(([label, plans]) => (
+        <section className="calendar-plan-section" key={label as string}>
+          <div className="agenda-heading">
+            <h2>{label as string}</h2>
+            <span>{(plans as KinliiEvent[]).length} plans</span>
           </div>
-          <Icon name="chevron" size={17} />
-        </button>
-        <button onClick={() => setEvent(events[2])}>
-          <time>
-            6:00<small>PM</small>
-          </time>
-          <span className="agenda-line purple" />
-          <div>
-            <span>
-              <Icon name={events[2].activityIcon} size={15} /> {events[2].type}
-            </span>
-            <strong>{events[2].title}</strong>
-            <p>
-              {events[2].place} · {events[2].distance}
-            </p>
+          <div className="agenda-list">
+            {(plans as KinliiEvent[]).map((plan) => (
+              <button key={plan.id} onClick={() => setEvent(plan)}>
+                <time>
+                  {new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(
+                    new Date(plan.startsAt),
+                  )}
+                  <small>{label === "Hosted" ? "HOST" : ""}</small>
+                </time>
+                <span className="agenda-line green" />
+                <div>
+                  <span>
+                    <Icon name={plan.activityIcon} size={15} /> {plan.type}
+                  </span>
+                  <strong>{plan.title}</strong>
+                  <p>
+                    {plan.time} · {plan.place}
+                  </p>
+                </div>
+                <Icon name="chevron" size={17} />
+              </button>
+            ))}
+            {!(plans as KinliiEvent[]).length && (
+              <div className="empty-search">
+                <strong>No {String(label).toLowerCase()} plans</strong>
+                <span>
+                  Events will appear here when you{" "}
+                  {label === "Hosted" ? "create" : label === "Saved" ? "save" : "join"} them.
+                </span>
+              </div>
+            )}
           </div>
-          <Icon name="chevron" size={17} />
-        </button>
-        {hostedPlans.map((plan) => (
-          <button key={plan.id} onClick={() => setEvent(plan)}>
-            <time>
-              {plan.time}
-              <small>HOST</small>
-            </time>
-            <span className="agenda-line green" />
-            <div>
-              <span>
-                <Icon name={plan.activityIcon} size={15} /> {plan.type}
-              </span>
-              <strong>{plan.title}</strong>
-              <p>
-                {plan.place} · {plan.spots} spots left
-              </p>
-            </div>
-            <Icon name="chevron" size={17} />
-          </button>
-        ))}
-      </div>
+        </section>
+      ))}
       <section className="calendar-privacy-note">
         <Icon name="check" size={16} />
         <p>
@@ -264,10 +165,9 @@ export function CalendarScreen({
 type AlertsScreenProps = {
   alertsEnabled: boolean;
   setAlertsEnabled: Dispatch<SetStateAction<boolean>>;
-  setEvent: Dispatch<SetStateAction<KinliiEvent | null>>;
 };
 
-export function AlertsScreen({ alertsEnabled, setAlertsEnabled, setEvent }: AlertsScreenProps) {
+export function AlertsScreen({ alertsEnabled, setAlertsEnabled }: AlertsScreenProps) {
   return (
     <>
       <section className="notification-toggle">
@@ -285,46 +185,10 @@ export function AlertsScreen({ alertsEnabled, setAlertsEnabled, setEvent }: Aler
           <i />
         </button>
       </section>
-      <h2 className="timeline-title">Today</h2>
-      <div className="alert-list">
-        <button onClick={() => setEvent(events[0])}>
-          <span className="alert-symbol coral">
-            <Icon name="location" />
-          </span>
-          <div>
-            <strong>A 96% match is 0.4 mi away</strong>
-            <p>Sunset badminton starts at 5:30 PM. Two spots are still open.</p>
-            <small>12 minutes ago</small>
-          </div>
-        </button>
-        <button onClick={() => setEvent(events[1])}>
-          <span className="alert-symbol green">
-            <Icon name="people" />
-          </span>
-          <div>
-            <strong>Noah joined an event you saved</strong>
-            <p>You share 3 interests and have compatible social styles.</p>
-            <small>1 hour ago</small>
-          </div>
-        </button>
-        <button>
-          <span className="alert-symbol yellow">
-            <Icon name="sparkles" />
-          </span>
-          <div>
-            <strong>5 new recommendations this week</strong>
-            <p>Your suggestions improved after completing your personality profile.</p>
-            <small>3 hours ago</small>
-          </div>
-        </button>
-      </div>
-      <div className="quiet-hours">
-        <Icon name="clock" />
-        <div>
-          <strong>Quiet hours</strong>
-          <p>No notifications between 10 PM and 8 AM</p>
-        </div>
-        <Icon name="chevron" />
+      <div className="empty-search">
+        <Icon name="bell" />
+        <strong>No alerts yet</strong>
+        <span>Real activity notifications will appear here when they are generated.</span>
       </div>
     </>
   );
@@ -334,33 +198,46 @@ type ProfileScreenProps = {
   accountEmail: string;
   displayName: string;
   universityName: string;
+  bio: string;
   profileImage: string;
   profileInput: RefObject<HTMLInputElement | null>;
   joinedCount: number;
   hostedCount: number;
+  savedCount: number;
   personality: Personality;
   selectedInterests: string[];
   setQuizStep: Dispatch<SetStateAction<number>>;
   setScreen: Dispatch<SetStateAction<Screen>>;
   setAccessibilityOpen: Dispatch<SetStateAction<boolean>>;
   onSignOut: () => Promise<void>;
+  onUpdateProfile: (values: {
+    displayName: string;
+    universityName: string;
+    bio: string;
+  }) => Promise<void>;
 };
 
 export function ProfileScreen({
   accountEmail,
   displayName,
   universityName,
+  bio,
   profileImage,
   profileInput,
   joinedCount,
   hostedCount,
+  savedCount,
   personality,
   selectedInterests,
   setQuizStep,
   setScreen,
   setAccessibilityOpen,
   onSignOut,
+  onUpdateProfile,
 }: ProfileScreenProps) {
+  const [editing, setEditing] = useState(false);
+  const [editValues, setEditValues] = useState({ displayName, universityName, bio });
+  const [saving, setSaving] = useState(false);
   const joined = { length: joinedCount };
   const hostedPlans = { length: hostedCount };
   const initials =
@@ -385,12 +262,22 @@ export function ProfileScreen({
         </button>
         <h2>{displayName}</h2>
         <p>{universityName} · Verified student</p>
+        {bio && <p>{bio}</p>}
+        <button
+          className="profile-edit-button"
+          onClick={() => {
+            setEditValues({ displayName, universityName, bio });
+            setEditing(true);
+          }}
+        >
+          Edit profile
+        </button>
         <div>
           <span>
             <strong>{joined.length}</strong>Plans joined
           </span>
           <span>
-            <strong>4.9</strong>Community rating
+            <strong>{savedCount}</strong>Plans saved
           </span>
           <span>
             <strong>{hostedPlans.length}</strong>Plans hosted
@@ -424,16 +311,6 @@ export function ProfileScreen({
         </div>
         <button onClick={() => setScreen("interests")}>Edit interests</button>
       </section>
-      <button className="settings-row">
-        <span>
-          <Icon name="location" />
-        </span>
-        <div>
-          <strong>Location & distance</strong>
-          <small>Tempe campus · Within 3 miles</small>
-        </div>
-        <Icon name="chevron" />
-      </button>
       <button className="settings-row" onClick={() => setAccessibilityOpen(true)}>
         <span>
           <Icon name="accessibility" />
@@ -454,6 +331,70 @@ export function ProfileScreen({
         </div>
         <Icon name="chevron" />
       </button>
+      {editing && (
+        <div className="leave-dialog-backdrop" role="presentation">
+          <section
+            className="leave-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-profile-title"
+          >
+            <header>
+              <div>
+                <h2 id="edit-profile-title">Edit profile</h2>
+                <p>Keep your public profile accurate.</p>
+              </div>
+            </header>
+            <label>
+              Display name
+              <input
+                value={editValues.displayName}
+                onChange={(event) =>
+                  setEditValues({ ...editValues, displayName: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              University
+              <input
+                value={editValues.universityName}
+                onChange={(event) =>
+                  setEditValues({ ...editValues, universityName: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              Bio
+              <textarea
+                rows={4}
+                value={editValues.bio}
+                onChange={(event) => setEditValues({ ...editValues, bio: event.target.value })}
+              />
+            </label>
+            <div className="leave-dialog-actions">
+              <button onClick={() => setEditing(false)}>Cancel</button>
+              <button
+                disabled={
+                  saving || !editValues.displayName.trim() || !editValues.universityName.trim()
+                }
+                onClick={() =>
+                  void (async () => {
+                    setSaving(true);
+                    try {
+                      await onUpdateProfile(editValues);
+                      setEditing(false);
+                    } finally {
+                      setSaving(false);
+                    }
+                  })()
+                }
+              >
+                {saving ? "Saving…" : "Save profile"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </>
   );
 }

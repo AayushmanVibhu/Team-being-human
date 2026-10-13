@@ -119,6 +119,9 @@ export function LoginScreen(props: LoginScreenProps) {
         <button className="email-login-alternative" onClick={() => setScreen("verify")}>
           Already registered but no password? Verify by email
         </button>
+        <button className="email-login-alternative" onClick={() => setScreen("forgot-password")}>
+          Forgot your password?
+        </button>
       </main>
       <div className="bottom-action">
         <button
@@ -131,6 +134,37 @@ export function LoginScreen(props: LoginScreenProps) {
         <button className="create-account-link" onClick={() => setScreen("verify")}>
           New to Kinlii? Create an account
         </button>
+      </div>
+    </div>
+  );
+}
+
+type ForgotPasswordScreenProps = {
+  email: string;
+  error: string;
+  loading: boolean;
+  sent: boolean;
+  onSend: () => Promise<void>;
+  setEmail: Dispatch<SetStateAction<string>>;
+  setScreen: SetScreen;
+};
+
+export function ForgotPasswordScreen({ email, error, loading, sent, onSend, setEmail, setScreen }: ForgotPasswordScreenProps) {
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(email);
+  return (
+    <div className="phone-shell onboarding verify-screen">
+      <header className="flow-header"><button onClick={() => setScreen("login")}><Icon name="arrow" /></button><Logo /><span>Reset</span></header>
+      <main className="verification-content login-content">
+        <div className="verification-mark profile-mark"><Icon name="check" size={31} /></div>
+        <span className="step-label">ACCOUNT RECOVERY</span>
+        <h1>{sent ? "Check your inbox" : "Reset your password"}</h1>
+        <p>{sent ? `We sent a secure reset link to ${email}.` : "Enter the email address connected to your Kinlii account."}</p>
+        {!sent && <label className="edu-input"><span>Email</span><div><Icon name="user" size={18} /><input autoComplete="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></div></label>}
+        {error && <p className="auth-error" role="alert">{error}</p>}
+      </main>
+      <div className="bottom-action">
+        {!sent && <button className="primary-button" disabled={loading || !validEmail} onClick={() => void onSend()}>{loading ? "Sending…" : "Send reset link"}</button>}
+        {sent && <button className="create-account-link" onClick={() => setScreen("login")}>Back to sign in</button>}
       </div>
     </div>
   );
@@ -676,7 +710,7 @@ export function PersonalityResultScreen({
           <p>
             <strong>18 compatible students</strong>
             <br />
-            are active near Tempe campus
+            are active near your campus
           </p>
         </section>
       </main>

@@ -9,6 +9,8 @@ export type UserProfile = {
   avatarUrl: string | null;
   onboardingCompleted: boolean;
   passwordSet: boolean;
+  accessibilityPreferences: Record<string, boolean>;
+  personalityResult: Record<string, unknown>;
 };
 
 type ProfileRow = {
@@ -20,10 +22,12 @@ type ProfileRow = {
   avatar_url: string | null;
   onboarding_completed: boolean;
   password_set: boolean;
+  accessibility_preferences: Record<string, boolean> | null;
+  personality_result: Record<string, unknown> | null;
 };
 
 const profileColumns =
-  "id, display_name, university_name, email_domain, bio, avatar_url, onboarding_completed, password_set";
+  "id, display_name, university_name, email_domain, bio, avatar_url, onboarding_completed, password_set, accessibility_preferences, personality_result";
 
 function mapProfile(row: ProfileRow): UserProfile {
   return {
@@ -35,6 +39,8 @@ function mapProfile(row: ProfileRow): UserProfile {
     avatarUrl: row.avatar_url,
     onboardingCompleted: row.onboarding_completed,
     passwordSet: row.password_set,
+    accessibilityPreferences: row.accessibility_preferences ?? {},
+    personalityResult: row.personality_result ?? {},
   };
 }
 
@@ -96,7 +102,36 @@ export async function updateProfile(
   return mapProfile(data as ProfileRow);
 }
 
-export async function completeOnboarding(userId: string, interestNames: string[]) {
+export async function getProfileInterests(userId: string): Promise<string[]> {
+  const client = requireSupabase();
+  const { data, error } = await client
+    .from("profile_interests")
+    .select("interests(name)")
+    .eq("profile_id", userId);
+  if (error) throw error;
+  return (data ?? []).flatMap((row) => {
+    const value = row.interests as unknown as { name: string } | { name: string }[] | null;
+    if (Array.isArray(value)) return value.map((interest) => interest.name);
+    return value?.name ? [value.name] : [];
+  });
+}
+
+export async function updateProfilePreferences(
+  userId: string,
+  accessibilityPreferences: Record<string, boolean>,
+): Promise<void> {
+  const { error } = await requireSupabase()
+    .from("profiles")
+    .update({ accessibility_preferences: accessibilityPreferences })
+    .eq("id", userId);
+  if (error) throw error;
+}
+
+export async function completeOnboarding(
+  userId: string,
+  interestNames: string[],
+  personalityResult?: Record<string, unknown>,
+) {
   const client = requireSupabase();
   const { data: interests, error: interestError } = await client
     .from("interests")
@@ -123,7 +158,7 @@ export async function completeOnboarding(userId: string, interestNames: string[]
 
   const { error: profileError } = await client
     .from("profiles")
-    .update({ onboarding_completed: true })
+    .update({ onboarding_completed: true, personality_result: personalityResult ?? {} })
     .eq("id", userId);
   if (profileError) throw profileError;
 }

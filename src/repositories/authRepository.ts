@@ -41,6 +41,13 @@ export async function setAccountPassword(password: string) {
   return data.user;
 }
 
+export async function sendPasswordReset(email: string) {
+  const { error } = await requireSupabase().auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: `${window.location.origin}/`,
+  });
+  if (error) throw error;
+}
+
 export async function signOut() {
   const { error } = await requireSupabase().auth.signOut();
   if (error) throw error;

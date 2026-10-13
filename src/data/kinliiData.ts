@@ -64,7 +64,7 @@ export const questions = [
   },
 ];
 
-export type EventId = number | string;
+export type EventId = string;
 
 export type KinliiEvent = {
   id: EventId;
@@ -79,56 +79,9 @@ export type KinliiEvent = {
   capacity?: number;
   attendeeCount?: number;
   description?: string;
+  startsAt: string;
   host: string;
   hostId?: string;
   activityIcon: IconName;
   tags: string[];
 };
-
-export const events: KinliiEvent[] = [
-  {
-    id: 1,
-    title: "Sunset badminton",
-    type: "Sports",
-    image:
-      "https://images.unsplash.com/photo-1723074832950-9fb031b0f4ec?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=80&w=900",
-    time: "Today · 5:30 PM",
-    place: "SDFC courts",
-    distance: "0.4 mi",
-    match: 96,
-    spots: 1,
-    host: "Maya",
-    activityIcon: "racquet" as IconName,
-    tags: ["Badminton", "Beginner friendly", "Low-key"],
-  },
-  {
-    id: 2,
-    title: "Papago sunrise walk",
-    type: "Outdoors",
-    image:
-      "https://images.unsplash.com/photo-1726156372736-ce2229e7cf0a?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=80&w=900",
-    time: "Tomorrow · 7:00 AM",
-    place: "Papago Park",
-    distance: "2.1 mi",
-    match: 92,
-    spots: 3,
-    host: "Noah",
-    activityIcon: "trail" as IconName,
-    tags: ["Hiking", "Photography", "Carpool"],
-  },
-  {
-    id: 3,
-    title: "K-pop dance cover",
-    type: "Creative",
-    image:
-      "https://images.unsplash.com/photo-1787724691088-76ed8e29dbc8?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=80&w=900",
-    time: "Friday · 6:00 PM",
-    place: "Student Pavilion",
-    distance: "0.7 mi",
-    match: 87,
-    spots: 3,
-    host: "Jules",
-    activityIcon: "dance" as IconName,
-    tags: ["K-pop", "Dance", "Creative"],
-  },
-];

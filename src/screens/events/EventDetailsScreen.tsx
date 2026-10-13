@@ -7,7 +7,6 @@ type EventDetailsScreenProps = {
   event: KinliiEvent;
   joined: EventId[];
   saved: EventId[];
-  carpoolJoined: EventId[];
   actionError: string;
   actionLoading: boolean;
   largeText: boolean;
@@ -17,15 +16,16 @@ type EventDetailsScreenProps = {
   setEvent: Dispatch<SetStateAction<KinliiEvent | null>>;
   onJoin: (eventId: EventId) => Promise<void>;
   onLeave: (eventId: EventId, reason: string) => Promise<void>;
-  setSaved: Dispatch<SetStateAction<EventId[]>>;
-  setCarpoolJoined: Dispatch<SetStateAction<EventId[]>>;
+  onToggleSaved: (eventId: EventId) => Promise<void>;
+  isHost: boolean;
+  onEdit: (event: KinliiEvent) => void;
+  onCancel: (eventId: string) => Promise<void>;
 };
 
 export function EventDetailsScreen({
   event,
   joined,
   saved,
-  carpoolJoined,
   actionError,
   actionLoading,
   largeText,
@@ -35,25 +35,14 @@ export function EventDetailsScreen({
   setEvent,
   onJoin,
   onLeave,
-  setSaved,
-  setCarpoolJoined,
+  onToggleSaved,
+  isHost,
+  onEdit,
+  onCancel,
 }: EventDetailsScreenProps) {
   const isJoined = joined.includes(event.id);
-  const hasCarpool = carpoolJoined.includes(event.id);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [leaveReason, setLeaveReason] = useState("");
-
-  const toggleSaved = () => {
-    setSaved((items) =>
-      items.includes(event.id) ? items.filter((id) => id !== event.id) : [...items, event.id],
-    );
-  };
-
-  const toggleCarpool = () => {
-    setCarpoolJoined((items) =>
-      items.includes(event.id) ? items.filter((id) => id !== event.id) : [...items, event.id],
-    );
-  };
 
   const submitLeave = async () => {
     if (!leaveReason) return;
@@ -84,7 +73,7 @@ export function EventDetailsScreen({
         </button>
         <button
           className={`floating-save ${saved.includes(event.id) ? "saved" : ""}`}
-          onClick={toggleSaved}
+          onClick={() => void onToggleSaved(event.id)}
           aria-label={saved.includes(event.id) ? "Remove saved activity" : "Save activity"}
         >
           <Icon name="heart" filled={saved.includes(event.id)} />
@@ -110,7 +99,7 @@ export function EventDetailsScreen({
             </span>
             <p>
               <strong>{event.time}</strong>
-              <small>Add to calendar</small>
+              <small>Event date and time</small>
             </p>
           </div>
           <div>
@@ -160,19 +149,9 @@ export function EventDetailsScreen({
               <div className="mini-avatar peach">{event.host[0]}</div>
               <p>
                 <strong>{event.host}</strong>
-                <small>
-                  Host · 4.9 <Icon name="star" size={10} filled />
-                </small>
+                <small>Host · Verified student</small>
               </p>
-              <span>96% match</span>
-            </div>
-            <div>
-              <div className="mini-avatar sage">JT</div>
-              <p>
-                <strong>Jordan</strong>
-                <small>Verified student</small>
-              </p>
-              <span>89% match</span>
+              <span>Host</span>
             </div>
           </div>
         </section>
@@ -185,41 +164,20 @@ export function EventDetailsScreen({
             <p>Public campus venue · Verified students · Community reporting on</p>
           </div>
         </section>
-        <section className="carpool-card">
-          <div className="carpool-heading">
-            <span>
-              <Icon name="car" size={21} />
-            </span>
-            <div>
-              <strong>Ride together</strong>
-              <p>Save money, lower emissions, and arrive with the group.</p>
-            </div>
-            <small>2 rides</small>
-          </div>
-          <div className="carpool-route">
-            <i />
-            <div>
-              <strong>Pickup near Memorial Union</strong>
-              <p>0.3 mi from you · Leaves 5:05 PM</p>
-            </div>
-            <span>2 seats</span>
-          </div>
-          <div className="carpool-privacy">
-            <Icon name="check" size={13} /> Your exact address is never shared. Choose a public
-            pickup point.
-          </div>
-          <button className={hasCarpool ? "joined" : ""} onClick={toggleCarpool}>
-            {hasCarpool ? (
-              <>
-                <Icon name="check" size={16} /> Ride requested
-              </>
-            ) : (
-              <>
-                <Icon name="car" size={16} /> Find a carpool
-              </>
-            )}
-          </button>
-        </section>
+        {isHost && (
+          <section className="host-event-actions">
+            <button onClick={() => onEdit(event)}>Edit activity</button>
+            <button
+              disabled={actionLoading}
+              onClick={() => {
+                if (window.confirm("Cancel this activity? It will be removed for everyone."))
+                  void onCancel(event.id);
+              }}
+            >
+              {actionLoading ? "Cancelling…" : "Cancel activity"}
+            </button>
+          </section>
+        )}
       </main>
 
       <div className="event-action">
@@ -229,21 +187,27 @@ export function EventDetailsScreen({
             {event.spots} spot{event.spots === 1 ? "" : "s"} available
           </span>
         </div>
-        <button
-          className={isJoined ? "joined-event-button" : ""}
-          disabled={actionLoading || (!isJoined && event.spots <= 0)}
-          onClick={() => (isJoined ? setLeaveDialogOpen(true) : void onJoin(event.id))}
-        >
-          {actionLoading ? (
-            "Updating…"
-          ) : isJoined ? (
-            <>
-              <Icon name="check" size={18} /> You’re going · Leave
-            </>
-          ) : (
-            "Join group"
-          )}
-        </button>
+        {isHost ? (
+          <button className="joined-event-button" onClick={() => onEdit(event)}>
+            Manage activity
+          </button>
+        ) : (
+          <button
+            className={isJoined ? "joined-event-button" : ""}
+            disabled={actionLoading || (!isJoined && event.spots <= 0)}
+            onClick={() => (isJoined ? setLeaveDialogOpen(true) : void onJoin(event.id))}
+          >
+            {actionLoading ? (
+              "Updating…"
+            ) : isJoined ? (
+              <>
+                <Icon name="check" size={18} /> You’re going · Leave
+              </>
+            ) : (
+              "Join group"
+            )}
+          </button>
+        )}
       </div>
 
       {actionError && (

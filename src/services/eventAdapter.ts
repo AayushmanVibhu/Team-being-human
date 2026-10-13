@@ -2,20 +2,14 @@ import type { IconName } from "../components/ui/Icon";
 import type { KinliiEvent } from "../data/kinliiData";
 import type { EventFeedItem } from "../repositories/eventRepository";
 
-const categoryPresentation: Record<string, { image: string; icon: IconName }> = {
+const categoryPresentation: Record<string, { icon: IconName }> = {
   Sports: {
-    image:
-      "https://images.unsplash.com/photo-1723074832950-9fb031b0f4ec?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=80&w=900",
     icon: "racquet",
   },
   Outdoors: {
-    image:
-      "https://images.unsplash.com/photo-1726156372736-ce2229e7cf0a?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=80&w=900",
     icon: "trail",
   },
   Creative: {
-    image:
-      "https://images.unsplash.com/photo-1787724691088-76ed8e29dbc8?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=80&w=900",
     icon: "dance",
   },
 };
@@ -48,8 +42,6 @@ function formatStartsAt(startsAt: string) {
 
 export function toKinliiEvent(event: EventFeedItem): KinliiEvent {
   const presentation = categoryPresentation[event.category] ?? {
-    image:
-      "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?crop=entropy&cs=tinysrgb&fit=crop&fm=jpg&q=80&w=900",
     icon: "sparkles" as IconName,
   };
 
@@ -57,7 +49,8 @@ export function toKinliiEvent(event: EventFeedItem): KinliiEvent {
     id: event.id,
     title: event.title,
     type: event.category,
-    image: presentation.image,
+    image: event.imageUrl || "/favicon.svg",
+    startsAt: event.startsAt,
     time: formatStartsAt(event.startsAt),
     place: event.locationName,
     distance: "Public meeting place",
@@ -74,7 +67,7 @@ export function toKinliiEvent(event: EventFeedItem): KinliiEvent {
 }
 
 export function resolveEventStart(day: string, time: string) {
-  const date = new Date();
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(day) ? new Date(`${day}T00:00:00`) : new Date();
   date.setSeconds(0, 0);
 
   if (day === "Tomorrow") date.setDate(date.getDate() + 1);
