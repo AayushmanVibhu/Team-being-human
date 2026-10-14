@@ -38,14 +38,17 @@ export function DiscoverScreen({
       <div className="event-scroll">
         {visibleEvents.map((item) => (
           <button className="event-card" key={item.id} onClick={() => setEvent(item)}>
-            <div>
-              <img src={item.image} alt="" />
+            <div
+              className={`event-card-art event-art-${item.type.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+            >
+              <i className="event-art-orbit one" />
+              <i className="event-art-orbit two" />
+              <b className="event-art-symbol">
+                <Icon name={item.activityIcon} size={42} />
+              </b>
               <span>
                 <Icon name="sparkles" size={12} /> {item.match}%
               </span>
-              <i className="activity-icon">
-                <Icon name={item.activityIcon} size={18} />
-              </i>
             </div>
             <section>
               <small>{item.type}</small>

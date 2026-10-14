@@ -53,7 +53,6 @@ import {
   listMySavedEventIds,
   saveEvent,
   unsaveEvent,
-  uploadEventImage,
   updateEvent,
 } from "./repositories/eventRepository";
 import { resolveEventStart, toKinliiEvent } from "./services/eventAdapter";
@@ -134,7 +133,6 @@ export default function App() {
     spots: "4",
     description: "",
   });
-  const [eventImage, setEventImage] = useState<File | null>(null);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [profileImage, setProfileImage] = useState("");
@@ -735,7 +733,6 @@ export default function App() {
       };
       const eventId = editingEventId ?? (await createEvent(input));
       if (editingEventId) await updateEvent(editingEventId, input);
-      if (eventImage) await uploadEventImage(session.user.id, eventId, eventImage);
       await refreshRealEvents();
       const createdEvent = (await listAvailableEvents())
         .map(toKinliiEvent)
@@ -750,7 +747,6 @@ export default function App() {
         spots: "4",
         description: "",
       });
-      setEventImage(null);
       setEditingEventId(null);
       setTab("discover");
       if (createdEvent) setEvent(createdEvent);
@@ -1388,15 +1384,6 @@ export default function App() {
                 rows={4}
               />
             </label>
-            <label className="create-field">
-              <span>Event photo (optional)</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(event) => setEventImage(event.target.files?.[0] ?? null)}
-              />
-              {eventImage && <small>{eventImage.name}</small>}
-            </label>
             {similarEvent && (
               <section className="duplicate-warning">
                 <div className="duplicate-title">
@@ -1414,7 +1401,11 @@ export default function App() {
                     setEvent(similarEvent);
                   }}
                 >
-                  <img src={similarEvent.image} alt="" />
+                  <span
+                    className={`recommendation-art event-art-${similarEvent.type.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                  >
+                    <Icon name={similarEvent.activityIcon} size={20} />
+                  </span>
                   <div>
                     <small>
                       {similarEvent.distance} away · {similarEvent.time}

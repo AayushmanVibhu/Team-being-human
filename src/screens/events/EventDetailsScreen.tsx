@@ -59,8 +59,15 @@ export function EventDetailsScreen({
     <div
       className={`phone-shell event-page ${largeText ? "large-text" : ""} ${highContrast ? "high-contrast" : ""}`}
     >
-      <div className="event-hero">
-        <img src={event.image} alt={event.title} />
+      <div
+        className={`event-hero event-art-${event.type.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+      >
+        <i className="event-art-orbit one" />
+        <i className="event-art-orbit two" />
+        <b className="event-hero-symbol">
+          <Icon name={event.activityIcon} size={72} />
+        </b>
+        <strong className="event-hero-category">{event.type}</strong>
         <button className="floating-back" onClick={() => setEvent(null)}>
           <Icon name="arrow" />
         </button>

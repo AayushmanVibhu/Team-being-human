@@ -49,7 +49,6 @@ export function toKinliiEvent(event: EventFeedItem): KinliiEvent {
     id: event.id,
     title: event.title,
     type: event.category,
-    image: event.imageUrl || "/favicon.svg",
     startsAt: event.startsAt,
     time: formatStartsAt(event.startsAt),
     place: event.locationName,

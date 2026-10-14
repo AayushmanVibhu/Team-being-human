@@ -70,7 +70,6 @@ export type KinliiEvent = {
   id: EventId;
   title: string;
   type: string;
-  image: string;
   time: string;
   place: string;
   distance: string;

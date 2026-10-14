@@ -1267,10 +1267,89 @@ em {
   height: 130px;
   position: relative;
 }
-.event-card img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.event-card-art,
+.event-hero,
+.recommendation-art {
+  --event-art-primary: #416b5c;
+  --event-art-secondary: #d9f078;
+  --event-art-ink: #173f36;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.7), transparent 28%),
+    linear-gradient(135deg, var(--event-art-secondary), var(--event-art-primary));
+}
+
+.event-art-sports {
+  --event-art-primary: #e77c62;
+  --event-art-secondary: #ffd8a9;
+  --event-art-ink: #793828;
+}
+
+.event-art-outdoors {
+  --event-art-primary: #4f8a70;
+  --event-art-secondary: #cde68c;
+  --event-art-ink: #184b3b;
+}
+
+.event-art-creative {
+  --event-art-primary: #9475ad;
+  --event-art-secondary: #f3c7cb;
+  --event-art-ink: #553b69;
+}
+
+.event-art-games {
+  --event-art-primary: #557eb0;
+  --event-art-secondary: #bbdcf0;
+  --event-art-ink: #294b73;
+}
+
+.event-art-music {
+  --event-art-primary: #cd6f91;
+  --event-art-secondary: #f5c7df;
+  --event-art-ink: #71334d;
+}
+
+.event-art-study {
+  --event-art-primary: #6c7d91;
+  --event-art-secondary: #d9e1e7;
+  --event-art-ink: #33495b;
+}
+
+.event-art-orbit {
+  position: absolute;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.event-art-orbit.one {
+  width: 150px;
+  height: 150px;
+  right: -36px;
+  top: -62px;
+}
+
+.event-art-orbit.two {
+  width: 92px;
+  height: 92px;
+  left: -24px;
+  bottom: -44px;
+}
+
+.event-art-symbol {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 74px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%) rotate(-5deg);
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 24px;
+  color: var(--event-art-ink);
+  background: rgba(255, 255, 255, 0.54);
+  box-shadow: 0 16px 30px rgba(36, 58, 49, 0.14);
+  backdrop-filter: blur(8px);
 }
 .event-card > div span {
   position: absolute;
@@ -1285,19 +1364,6 @@ em {
   border-radius: 999px;
   font-size: 8px;
   font-weight: 800;
-}
-.event-card > div .activity-icon {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border-radius: 11px;
-  color: #244b3e;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 4px 12px rgba(24, 48, 40, 0.18);
 }
 .event-card section {
   padding: 12px 13px;
@@ -2341,11 +2407,14 @@ em {
   border-radius: 10px;
   background: #fff;
 }
-.duplicate-warning img {
+.duplicate-warning > button .recommendation-art {
   width: 46px;
   height: 42px;
-  object-fit: cover;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
   border-radius: 7px;
+  color: var(--event-art-ink);
 }
 .duplicate-warning > button > div {
   flex: 1;
@@ -2933,17 +3002,45 @@ em {
   height: 285px;
   position: relative;
 }
-.event-hero img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 .event-hero::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.16), transparent 45%, rgba(0, 0, 0, 0.12));
+  background: linear-gradient(
+    to bottom,
+    rgba(20, 48, 39, 0.08),
+    transparent 45%,
+    rgba(20, 48, 39, 0.15)
+  );
   pointer-events: none;
+}
+.event-hero-symbol {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 1;
+  width: 128px;
+  height: 128px;
+  display: grid;
+  place-items: center;
+  transform: translate(-50%, -50%) rotate(-5deg);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 38px;
+  color: var(--event-art-ink);
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 22px 46px rgba(28, 54, 44, 0.18);
+  backdrop-filter: blur(10px);
+}
+.event-hero-category {
+  position: absolute;
+  z-index: 2;
+  right: 20px;
+  bottom: 20px;
+  color: var(--event-art-ink);
+  font:
+    800 12px/1 "Manrope",
+    sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 .floating-back,
 .floating-save,
