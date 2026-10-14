@@ -718,8 +718,7 @@ export default function App() {
       !createForm.category ||
       !createForm.date ||
       !createForm.time ||
-      !createForm.location ||
-      similarEvent
+      !createForm.location
     )
       return;
     if (!session) return;
@@ -1405,8 +1404,8 @@ export default function App() {
                     <Icon name="people" size={18} />
                   </span>
                   <div>
-                    <strong>A similar event already exists nearby</strong>
-                    <p>Joining forces helps the group fill and prevents double booking.</p>
+                    <strong>You may also like this nearby event</strong>
+                    <p>You can view it or continue publishing your own activity.</p>
                   </div>
                 </div>
                 <button
@@ -1425,7 +1424,7 @@ export default function App() {
                   </div>
                   <Icon name="chevron" size={17} />
                 </button>
-                <p>Try a different time or activity to create a new event.</p>
+                <p>This recommendation will not prevent you from creating your event.</p>
               </section>
             )}
             <button
@@ -1436,18 +1435,15 @@ export default function App() {
                 !createForm.category ||
                 !createForm.date ||
                 !createForm.time ||
-                !createForm.location ||
-                !!similarEvent
+                !createForm.location
               }
               onClick={() => void publishEvent()}
             >
               {publishingEvent
                 ? "Publishing…"
-                : similarEvent
-                  ? "Similar activity found"
-                  : editingEventId
-                    ? "Save changes"
-                    : "Publish activity"}{" "}
+                : editingEventId
+                  ? "Save changes"
+                  : "Publish activity"}{" "}
               {!publishingEvent && <Icon name="chevron" size={17} />}
             </button>
             {eventError && (
