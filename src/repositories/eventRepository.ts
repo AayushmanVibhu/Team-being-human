@@ -19,6 +19,20 @@ export type EventFeedItem = {
   recurrenceDays: number[];
 };
 
+export type EventParticipant = {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  isHost: boolean;
+};
+
+type EventParticipantRow = {
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  is_host: boolean;
+};
+
 type EventFeedRow = {
   id: string;
   host_id: string;
@@ -72,6 +86,19 @@ export async function listEventCatalog(): Promise<EventFeedItem[]> {
   const { data, error } = await client.from("event_catalog").select("*").order("starts_at");
   if (error) throw error;
   return ((data ?? []) as EventFeedRow[]).map(mapFeedRow);
+}
+
+export async function listEventParticipants(eventId: string): Promise<EventParticipant[]> {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("get_event_participants", { p_event_id: eventId });
+  if (error) throw error;
+
+  return ((data ?? []) as EventParticipantRow[]).map((participant) => ({
+    userId: participant.user_id,
+    displayName: participant.display_name || "Kinlii member",
+    avatarUrl: participant.avatar_url,
+    isHost: participant.is_host,
+  }));
 }
 
 export type CreateEventInput = {

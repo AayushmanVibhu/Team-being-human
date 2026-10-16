@@ -1,7 +1,8 @@
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
 import { Icon } from "../../components/ui/Icon";
 import type { EventId, KinliiEvent } from "../../data/kinliiData";
+import { listEventParticipants, type EventParticipant } from "../../repositories/eventRepository";
 
 type EventDetailsScreenProps = {
   event: KinliiEvent;
@@ -43,6 +44,37 @@ export function EventDetailsScreen({
   const isJoined = joined.includes(event.id);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [leaveReason, setLeaveReason] = useState("");
+  const [participants, setParticipants] = useState<EventParticipant[]>([]);
+  const [participantsLoading, setParticipantsLoading] = useState(true);
+  const [participantsError, setParticipantsError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setParticipantsLoading(true);
+    setParticipants([]);
+    setParticipantsError("");
+    void listEventParticipants(event.id)
+      .then((items) => {
+        if (active) setParticipants(items);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setParticipantsError(
+          error instanceof Error ? error.message : "Participants could not be loaded.",
+        );
+      })
+      .finally(() => {
+        if (active) setParticipantsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [event.attendeeCount, event.id]);
+
+  const attendeeCount = participantsLoading
+    ? (event.attendeeCount ?? Math.max(1, (event.capacity ?? 4) - event.spots))
+    : participants.length;
+  const spotsRemaining = Math.max(0, (event.capacity ?? 4) - attendeeCount);
 
   const submitLeave = async () => {
     if (!leaveReason) return;
@@ -142,23 +174,36 @@ export function EventDetailsScreen({
             <div>
               <h2>Meet the group</h2>
               <p>
-                {event.attendeeCount ?? Math.max(1, (event.capacity ?? 4) - event.spots)} of{" "}
-                {event.capacity ?? 4} verified students joined
+                {attendeeCount} of {event.capacity ?? 4} verified students joined
               </p>
             </div>
             <span>
-              {event.spots} spot{event.spots === 1 ? "" : "s"} left
+              {spotsRemaining} spot{spotsRemaining === 1 ? "" : "s"} left
             </span>
           </div>
           <div className="member-list">
-            <div>
-              <div className="mini-avatar peach">{event.host[0]}</div>
-              <p>
-                <strong>{event.host}</strong>
-                <small>Host · Verified student</small>
-              </p>
-              <span>Host</span>
-            </div>
+            {participants.map((participant) => (
+              <div key={participant.userId}>
+                <div
+                  className={`mini-avatar participant-avatar ${participant.avatarUrl ? "has-image" : ""}`}
+                >
+                  {participant.avatarUrl ? (
+                    <img src={participant.avatarUrl} alt="" />
+                  ) : (
+                    participant.displayName.charAt(0).toUpperCase()
+                  )}
+                </div>
+                <p>
+                  <strong>{participant.displayName}</strong>
+                  <small>{participant.isHost ? "Host · " : ""}Verified student</small>
+                </p>
+                {participant.isHost && <span>Host</span>}
+              </div>
+            ))}
+            {participantsLoading && <p className="participant-status">Loading the group…</p>}
+            {participantsError && !participantsLoading && (
+              <p className="participant-status error">The participant list could not be loaded.</p>
+            )}
           </div>
         </section>
         <section className="safety-card">
@@ -190,7 +235,7 @@ export function EventDetailsScreen({
         <div>
           <strong>Free</strong>
           <span>
-            {event.spots} spot{event.spots === 1 ? "" : "s"} available
+            {spotsRemaining} spot{spotsRemaining === 1 ? "" : "s"} available
           </span>
         </div>
         {isHost ? (
@@ -200,7 +245,7 @@ export function EventDetailsScreen({
         ) : (
           <button
             className={isJoined ? "joined-event-button" : ""}
-            disabled={actionLoading || (!isJoined && event.spots <= 0)}
+            disabled={actionLoading || (!isJoined && spotsRemaining <= 0)}
             onClick={() => (isJoined ? setLeaveDialogOpen(true) : void onJoin(event.id))}
           >
             {actionLoading ? (

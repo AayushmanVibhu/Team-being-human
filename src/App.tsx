@@ -170,6 +170,9 @@ export default function App() {
     ]);
     setRealEvents(feed.map(toKinliiEvent));
     const mappedCatalog = catalog.map(toKinliiEvent);
+    setEvent((current) =>
+      current ? (mappedCatalog.find((item) => item.id === current.id) ?? current) : current,
+    );
     setHostedEvents(mappedCatalog.filter((item) => item.hostId === session.user.id));
     setJoinedEvents(mappedCatalog.filter((item) => membershipIds.includes(item.id)));
     setSavedEvents(mappedCatalog.filter((item) => savedIds.includes(item.id)));
