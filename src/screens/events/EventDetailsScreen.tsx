@@ -85,9 +85,6 @@ export function EventDetailsScreen({
         >
           <Icon name="heart" filled={saved.includes(event.id)} />
         </button>
-        <span className="hero-match">
-          <Icon name="sparkles" size={14} /> {event.match}% match
-        </span>
       </div>
 
       <main className="event-content">
@@ -106,7 +103,9 @@ export function EventDetailsScreen({
             </span>
             <p>
               <strong>{event.time}</strong>
-              <small>Event date and time</small>
+              <small>
+                {event.recurrenceDays.length ? "Recurring weekly schedule" : "Event date and time"}
+              </small>
             </p>
           </div>
           <div>

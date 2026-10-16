@@ -73,7 +73,6 @@ export type KinliiEvent = {
   time: string;
   place: string;
   distance: string;
-  match: number;
   spots: number;
   capacity?: number;
   attendeeCount?: number;
@@ -83,4 +82,5 @@ export type KinliiEvent = {
   hostId?: string;
   activityIcon: IconName;
   tags: string[];
+  recurrenceDays: number[];
 };

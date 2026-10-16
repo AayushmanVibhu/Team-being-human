@@ -16,6 +16,7 @@ export type EventFeedItem = {
   spotsRemaining: number;
   tags: string[];
   imageUrl: string | null;
+  recurrenceDays: number[];
 };
 
 type EventFeedRow = {
@@ -34,6 +35,7 @@ type EventFeedRow = {
   spots_remaining: number;
   tags: string[] | null;
   image_url: string | null;
+  recurrence_days: number[] | null;
 };
 
 function mapFeedRow(row: EventFeedRow): EventFeedItem {
@@ -53,6 +55,7 @@ function mapFeedRow(row: EventFeedRow): EventFeedItem {
     spotsRemaining: row.spots_remaining,
     tags: row.tags ?? [],
     imageUrl: row.image_url,
+    recurrenceDays: row.recurrence_days ?? [],
   };
 }
 
@@ -78,6 +81,7 @@ export type CreateEventInput = {
   locationName: string;
   capacity: number;
   description?: string;
+  recurrenceDays?: number[];
 };
 
 export async function createEvent(input: CreateEventInput): Promise<string> {
@@ -93,6 +97,7 @@ export async function createEvent(input: CreateEventInput): Promise<string> {
     p_location_name: input.locationName.trim(),
     p_capacity: input.capacity,
     p_tags: [input.category, "New activity"],
+    p_recurrence_days: input.recurrenceDays ?? [],
   });
 
   if (error) throw error;
@@ -140,6 +145,7 @@ export async function updateEvent(eventId: string, input: CreateEventInput): Pro
       location_name: input.locationName.trim(),
       capacity: input.capacity,
       tags: [input.category],
+      recurrence_days: input.recurrenceDays ?? [],
     })
     .eq("id", eventId);
   if (error) throw error;
@@ -181,11 +187,10 @@ export async function listHostedEvents(hostId: string, hostName: string): Promis
   const { data: hostedEvents, error } = await client
     .from("events")
     .select(
-      "id, host_id, title, description, category, starts_at, location_name, latitude, longitude, capacity, tags, image_url",
+      "id, host_id, title, description, category, starts_at, location_name, latitude, longitude, capacity, tags, image_url, recurrence_days",
     )
     .eq("host_id", hostId)
     .eq("status", "active")
-    .gt("starts_at", new Date().toISOString())
     .order("starts_at");
   if (error) throw error;
   if (!hostedEvents?.length) return [];
@@ -204,26 +209,33 @@ export async function listHostedEvents(hostId: string, hostName: string): Promis
     attendeeCounts.set(eventId, (attendeeCounts.get(eventId) ?? 0) + 1);
   });
 
-  return hostedEvents.map((event) => {
-    const attendeeCount = attendeeCounts.get(event.id as string) ?? 0;
-    return {
-      id: event.id as string,
-      hostId: event.host_id as string,
-      hostName,
-      title: event.title as string,
-      description: event.description as string,
-      category: event.category as string,
-      startsAt: event.starts_at as string,
-      locationName: event.location_name as string,
-      latitude: event.latitude as number | null,
-      longitude: event.longitude as number | null,
-      capacity: event.capacity as number,
-      attendeeCount,
-      spotsRemaining: (event.capacity as number) - attendeeCount,
-      tags: (event.tags as string[] | null) ?? [],
-      imageUrl: event.image_url as string | null,
-    };
-  });
+  return hostedEvents
+    .filter(
+      (event) =>
+        ((event.recurrence_days as number[] | null) ?? []).length > 0 ||
+        new Date(event.starts_at as string).getTime() > Date.now(),
+    )
+    .map((event) => {
+      const attendeeCount = attendeeCounts.get(event.id as string) ?? 0;
+      return {
+        id: event.id as string,
+        hostId: event.host_id as string,
+        hostName,
+        title: event.title as string,
+        description: event.description as string,
+        category: event.category as string,
+        startsAt: event.starts_at as string,
+        locationName: event.location_name as string,
+        latitude: event.latitude as number | null,
+        longitude: event.longitude as number | null,
+        capacity: event.capacity as number,
+        attendeeCount,
+        spotsRemaining: (event.capacity as number) - attendeeCount,
+        tags: (event.tags as string[] | null) ?? [],
+        imageUrl: event.image_url as string | null,
+        recurrenceDays: (event.recurrence_days as number[] | null) ?? [],
+      };
+    });
 }
 
 export async function joinEvent(eventId: string) {

@@ -3,6 +3,7 @@ import { useState, type Dispatch, type RefObject, type SetStateAction } from "re
 import type { Personality, Screen, Tab } from "../../app/types";
 import { Icon } from "../../components/ui/Icon";
 import type { KinliiEvent } from "../../data/kinliiData";
+import type { AdminMetrics } from "../../repositories/adminRepository";
 
 type DiscoverScreenProps = {
   searchQuery: string;
@@ -46,12 +47,12 @@ export function DiscoverScreen({
               <b className="event-art-symbol">
                 <Icon name={item.activityIcon} size={42} />
               </b>
-              <span>
-                <Icon name="sparkles" size={12} /> {item.match}%
-              </span>
             </div>
             <section>
-              <small>{item.type}</small>
+              <small>
+                {item.type}
+                {item.recurrenceDays.length > 0 && <b className="recurring-label">Weekly</b>}
+              </small>
               <h3>{item.title}</h3>
               <div className="event-tags">
                 {item.tags.slice(0, 2).map((tag) => (
@@ -124,9 +125,11 @@ export function CalendarScreen({
             {(plans as KinliiEvent[]).map((plan) => (
               <button key={plan.id} onClick={() => setEvent(plan)}>
                 <time>
-                  {new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(
-                    new Date(plan.startsAt),
-                  )}
+                  {plan.recurrenceDays.length
+                    ? "Weekly"
+                    : new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(
+                        new Date(plan.startsAt),
+                      )}
                   <small>{label === "Hosted" ? "HOST" : ""}</small>
                 </time>
                 <span className="agenda-line green" />
@@ -218,6 +221,8 @@ type ProfileScreenProps = {
     universityName: string;
     bio: string;
   }) => Promise<void>;
+  adminMetrics: AdminMetrics | null;
+  onRefreshAdminMetrics: () => Promise<void>;
 };
 
 export function ProfileScreen({
@@ -237,8 +242,11 @@ export function ProfileScreen({
   setAccessibilityOpen,
   onSignOut,
   onUpdateProfile,
+  adminMetrics,
+  onRefreshAdminMetrics,
 }: ProfileScreenProps) {
   const [editing, setEditing] = useState(false);
+  const [adminDashboardOpen, setAdminDashboardOpen] = useState(false);
   const [editValues, setEditValues] = useState({ displayName, universityName, bio });
   const [saving, setSaving] = useState(false);
   const joined = { length: joinedCount };
@@ -324,6 +332,24 @@ export function ProfileScreen({
         </div>
         <Icon name="chevron" />
       </button>
+      {adminMetrics && (
+        <button
+          className="settings-row admin-dashboard-row"
+          onClick={() => {
+            setAdminDashboardOpen(true);
+            void onRefreshAdminMetrics();
+          }}
+        >
+          <span>
+            <Icon name="star" />
+          </span>
+          <div>
+            <strong>Admin dashboard</strong>
+            <small>View Kinlii’s essential community metrics</small>
+          </div>
+          <Icon name="chevron" />
+        </button>
+      )}
       <button className="settings-row sign-out-row" onClick={() => void onSignOut()}>
         <span>
           <Icon name="arrow" />
@@ -395,6 +421,45 @@ export function ProfileScreen({
                 {saving ? "Saving…" : "Save profile"}
               </button>
             </div>
+          </section>
+        </div>
+      )}
+      {adminDashboardOpen && adminMetrics && (
+        <div className="leave-dialog-backdrop" role="presentation">
+          <section
+            className="admin-dashboard"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-dashboard-title"
+          >
+            <header>
+              <div>
+                <span>ADMIN ONLY</span>
+                <h2 id="admin-dashboard-title">Community overview</h2>
+                <p>The three core adoption metrics for Kinlii.</p>
+              </div>
+              <button onClick={() => setAdminDashboardOpen(false)}>Done</button>
+            </header>
+            <div className="admin-metric-grid">
+              <article>
+                <Icon name="user" size={22} />
+                <strong>{adminMetrics.totalAccounts}</strong>
+                <span>Accounts created</span>
+              </article>
+              <article>
+                <Icon name="calendar" size={22} />
+                <strong>{adminMetrics.eventCreators}</strong>
+                <span>People who hosted</span>
+              </article>
+              <article>
+                <Icon name="people" size={22} />
+                <strong>{adminMetrics.eventJoiners}</strong>
+                <span>People who joined</span>
+              </article>
+            </div>
+            <p className="admin-dashboard-note">
+              Counts update whenever this dashboard is opened again.
+            </p>
           </section>
         </div>
       )}

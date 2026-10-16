@@ -40,6 +40,7 @@ import {
   updateProfilePreferences,
   type UserProfile,
 } from "./repositories/profileRepository";
+import { getAdminMetrics, type AdminMetrics } from "./repositories/adminRepository";
 import { communityAssistant } from "./services/communityAssistant";
 import { findSimilarEvents } from "./services/duplicateEventService";
 import {
@@ -55,7 +56,11 @@ import {
   unsaveEvent,
   updateEvent,
 } from "./repositories/eventRepository";
-import { resolveEventStart, toKinliiEvent } from "./services/eventAdapter";
+import {
+  resolveEventStart,
+  resolveRecurringEventStart,
+  toKinliiEvent,
+} from "./services/eventAdapter";
 
 import type { Screen, Tab } from "./app/types";
 
@@ -132,6 +137,8 @@ export default function App() {
     location: "",
     spots: "4",
     description: "",
+    recurring: false,
+    recurrenceDays: [] as number[],
   });
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -139,6 +146,7 @@ export default function App() {
   const [pendingProfileImage, setPendingProfileImage] = useState("");
   const [profileImageError, setProfileImageError] = useState("");
   const [profileImageSaving, setProfileImageSaving] = useState(false);
+  const [adminMetrics, setAdminMetrics] = useState<AdminMetrics | null>(null);
   const [cropZoom, setCropZoom] = useState(1);
   const [cropX, setCropX] = useState(0);
   const [cropY, setCropY] = useState(0);
@@ -168,6 +176,19 @@ export default function App() {
     setJoined(membershipIds);
     setSaved(savedIds);
   }, [session]);
+
+  const refreshAdminMetrics = useCallback(async () => {
+    if (!session) return;
+    setAdminMetrics(await getAdminMetrics());
+  }, [session]);
+
+  useEffect(() => {
+    if (!session || !profile?.onboardingCompleted) {
+      setAdminMetrics(null);
+      return;
+    }
+    void refreshAdminMetrics().catch(() => setAdminMetrics(null));
+  }, [profile?.onboardingCompleted, refreshAdminMetrics, session]);
 
   useEffect(() => {
     if (!session || !profile?.onboardingCompleted) return;
@@ -714,7 +735,8 @@ export default function App() {
     if (
       !createForm.title ||
       !createForm.category ||
-      !createForm.date ||
+      (!createForm.recurring && !createForm.date) ||
+      (createForm.recurring && !createForm.recurrenceDays.length) ||
       !createForm.time ||
       !createForm.location
     )
@@ -726,10 +748,13 @@ export default function App() {
       const input = {
         title: createForm.title,
         category: createForm.category,
-        startsAt: resolveEventStart(createForm.date, createForm.time),
+        startsAt: createForm.recurring
+          ? resolveRecurringEventStart(createForm.recurrenceDays, createForm.time)
+          : resolveEventStart(createForm.date, createForm.time),
         locationName: createForm.location,
         capacity: Number(createForm.spots),
         description: createForm.description,
+        recurrenceDays: createForm.recurring ? createForm.recurrenceDays : [],
       };
       const eventId = editingEventId ?? (await createEvent(input));
       if (editingEventId) await updateEvent(editingEventId, input);
@@ -746,6 +771,8 @@ export default function App() {
         location: "",
         spots: "4",
         description: "",
+        recurring: false,
+        recurrenceDays: [],
       });
       setEditingEventId(null);
       setTab("discover");
@@ -768,6 +795,8 @@ export default function App() {
       location: item.place,
       spots: String(item.capacity ?? 4),
       description: item.description ?? "",
+      recurring: item.recurrenceDays.length > 0,
+      recurrenceDays: item.recurrenceDays,
     });
     setEditingEventId(item.id);
     setEvent(null);
@@ -1045,6 +1074,8 @@ export default function App() {
             setAccessibilityOpen={setAccessibilityOpen}
             onSignOut={handleSignOut}
             onUpdateProfile={saveEditedProfile}
+            adminMetrics={adminMetrics}
+            onRefreshAdminMetrics={refreshAdminMetrics}
           />
         )}
       </main>
@@ -1344,12 +1375,23 @@ export default function App() {
                 </select>
               </label>
               <label className="create-field">
-                <span>Day</span>
-                <input
-                  type="date"
-                  value={createForm.date}
-                  onChange={(event) => setCreateForm({ ...createForm, date: event.target.value })}
-                />
+                <span>Schedule</span>
+                <div className="schedule-type-picker">
+                  <button
+                    type="button"
+                    className={!createForm.recurring ? "active" : ""}
+                    onClick={() => setCreateForm({ ...createForm, recurring: false })}
+                  >
+                    One time
+                  </button>
+                  <button
+                    type="button"
+                    className={createForm.recurring ? "active" : ""}
+                    onClick={() => setCreateForm({ ...createForm, recurring: true })}
+                  >
+                    Weekly
+                  </button>
+                </div>
               </label>
               <label className="create-field">
                 <span>Time</span>
@@ -1360,6 +1402,55 @@ export default function App() {
                 />
               </label>
             </div>
+            {createForm.recurring ? (
+              <fieldset className="recurrence-picker">
+                <legend>Repeats every</legend>
+                <div>
+                  {[
+                    [1, "Mon"],
+                    [2, "Tue"],
+                    [3, "Wed"],
+                    [4, "Thu"],
+                    [5, "Fri"],
+                    [6, "Sat"],
+                    [0, "Sun"],
+                  ].map(([value, label]) => {
+                    const day = Number(value);
+                    const selected = createForm.recurrenceDays.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        className={selected ? "active" : ""}
+                        aria-pressed={selected}
+                        onClick={() =>
+                          setCreateForm({
+                            ...createForm,
+                            recurrenceDays: selected
+                              ? createForm.recurrenceDays.filter((item) => item !== day)
+                              : [...createForm.recurrenceDays, day].sort(),
+                          })
+                        }
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <small>
+                  This activity stays discoverable each week until it fills or you cancel it.
+                </small>
+              </fieldset>
+            ) : (
+              <label className="create-field">
+                <span>Date</span>
+                <input
+                  type="date"
+                  value={createForm.date}
+                  onChange={(event) => setCreateForm({ ...createForm, date: event.target.value })}
+                />
+              </label>
+            )}
             <label className="create-field">
               <span>Public meeting place</span>
               <div className="location-input">
@@ -1424,7 +1515,8 @@ export default function App() {
                 publishingEvent ||
                 !createForm.title ||
                 !createForm.category ||
-                !createForm.date ||
+                (!createForm.recurring && !createForm.date) ||
+                (createForm.recurring && !createForm.recurrenceDays.length) ||
                 !createForm.time ||
                 !createForm.location
               }
